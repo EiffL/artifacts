@@ -15,6 +15,7 @@ import { AuthNotice } from "@/components/auth-notice"
 import { AuthStatus } from "@/components/auth-status"
 import { Command } from "@/components/command"
 import { Logo } from "@/components/logo"
+import { OnboardAgentButton } from "@/components/onboard-agent-button"
 import { OpenArtifactForm } from "@/components/open-artifact-form"
 import { SiteFooter } from "@/components/site-footer"
 import { StarButton } from "@/components/star-button"
@@ -56,8 +57,12 @@ const REASONS = [
   },
 ]
 
-/** Each inner list is one box with its own copy button: slash commands are entered one at a time. */
-const INSTALL = [
+/**
+ * Claude Code and Codex have a plugin, which is the install to prefer: it updates with the
+ * repository. Each inner list is one box with its own copy button, because slash commands are
+ * entered one at a time.
+ */
+const PLUGINS = [
   {
     id: "claude-code",
     label: "Claude Code",
@@ -68,12 +73,8 @@ const INSTALL = [
     label: "Codex",
     commands: [[`codex plugin marketplace add ${REPO_SLUG}`, "codex plugin add gist-artifacts@gist-artifacts"]],
   },
-  {
-    id: "other",
-    label: "Other agents",
-    commands: [[`npx skills add ${REPO_SLUG}`]],
-  },
 ]
+const OTHER_AGENTS = "other"
 
 const ASKS = [
   { say: "Publish this page as a Gist artifact.", get: "A new Gist is created and you get its link." },
@@ -198,21 +199,31 @@ export default function Home() {
           >
             <ol className="flex flex-col gap-8">
               <Step number={1} title="Install the skill in your agent">
-                <Tabs defaultValue={INSTALL[0].id}>
+                <Tabs defaultValue={PLUGINS[0].id}>
                   <TabsList>
-                    {INSTALL.map((option) => (
+                    {PLUGINS.map((option) => (
                       <TabsTrigger key={option.id} value={option.id} className="px-3">
                         {option.label}
                       </TabsTrigger>
                     ))}
+                    <TabsTrigger value={OTHER_AGENTS} className="px-3">
+                      Other agents
+                    </TabsTrigger>
                   </TabsList>
-                  {INSTALL.map((option) => (
+                  {PLUGINS.map((option) => (
                     <TabsContent key={option.id} value={option.id} className="flex flex-col gap-2">
                       {option.commands.map((lines) => (
                         <Command key={lines[0]} label={option.label} lines={lines} />
                       ))}
                     </TabsContent>
                   ))}
+                  <TabsContent value={OTHER_AGENTS} className="flex flex-col items-start gap-3">
+                    <OnboardAgentButton variant="default" size="lg" className="h-10 px-4" />
+                    <p className="text-sm text-pretty text-muted-foreground">
+                      Copies a prompt to paste into your agent. It fetches this site&apos;s setup page and
+                      installs the skill.
+                    </p>
+                  </TabsContent>
                 </Tabs>
               </Step>
               <Step number={2} title="Ask for an artifact">

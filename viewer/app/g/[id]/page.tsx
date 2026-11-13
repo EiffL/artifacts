@@ -41,7 +41,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // Unlisted Gists must stay unlisted.
     robots: { index: false, follow: false },
     openGraph: { title, description, type: "article", siteName: SITE_NAME },
-    twitter: { card: "summary", title, description },
+    // The image is this segment's opengraph-image: a card with the title and where it was made.
+    twitter: { card: "summary_large_image", title, description },
   }
 }
 

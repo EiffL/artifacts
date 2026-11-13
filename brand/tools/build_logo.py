@@ -39,8 +39,8 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 
-from kit import (DARK, INSTALL, LIGHT, NAME, REPO, ROOT, SLUG, TOKENS, VIEWER_CSS, VIEWER_JSON,  # noqa: F401
-                 colors_css, viewer_css, viewer_json)
+from kit import (DARK, INSTALL, LIGHT, NAME, REPO, ROOT, SLUG, TOKENS, VIEWER_CSS, VIEWER_FONT_DIR,  # noqa: F401
+                 VIEWER_FONT_LICENCES, VIEWER_FONTS, VIEWER_JSON, colors_css, viewer_css, viewer_json)
 
 FONTS = ROOT / "fonts"
 LOGO_DIR, LOGO_PNG_DIR = ROOT / "logo", ROOT / "logo" / "png"
@@ -136,6 +136,24 @@ class Face:
             d += pen.getCommands()
             x += pos.x_advance + (tracking * self.upm if i < last else 0)
         return d, x * k, bounds.bounds
+
+
+def write_static_fonts():
+    """One-weight TrueType cuts of the variable fonts, for renderers that need them."""
+    VIEWER_FONT_DIR.mkdir(parents=True, exist_ok=True)
+    for name, (source, weight) in VIEWER_FONTS.items():
+        font = TTFont(FONTS / source, recalcTimestamp=False)
+        full = {a.axisTag: (weight if a.axisTag == "wght" else a.defaultValue) for a in font["fvar"].axes}
+        cut = instancer.instantiateVariableFont(font, full, inplace=False)
+        cut.flavor = None
+        cut.recalcTimestamp = False
+        # The card renderer applies this font's pair kerning to the wrong pairs, which opens
+        # uneven gaps between words. Without the table it sets plain advances, evenly.
+        if "GPOS" in cut:
+            del cut["GPOS"]
+        cut.save(VIEWER_FONT_DIR / name)
+    for licence in VIEWER_FONT_LICENCES:
+        shutil.copyfile(FONTS / licence, VIEWER_FONT_DIR / licence)
 
 
 # The wordmark: Geist Semibold, tracked in by 3% of the type size.
@@ -288,6 +306,7 @@ def main():
     (TOKEN_DIR / "colors.css").write_text(colors_css())
     VIEWER_CSS.write_text(viewer_css())
     VIEWER_JSON.write_text(viewer_json())
+    write_static_fonts()
 
     outputs = {LOGO_DIR / f"{n}.svg": t for n, t in {**build_marks(), **build_lockups()}.items()}
     outputs[ICON_DIR / "favicon.svg"] = build_favicon()
