@@ -1,4 +1,9 @@
-# Gist Artifacts
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/logo/gist-artifacts-lockup-dark.svg">
+    <img alt="Gist Artifacts" src="brand/logo/gist-artifacts-lockup.svg" width="340">
+  </picture>
+</h1>
 
 **Shareable pages from your AI agent, stored in your own GitHub Gists.**
 
@@ -153,5 +158,7 @@ A working prototype. The format is a draft at version 0.1 and may still change.
 ## Contributing and license
 
 Development notes are in [CONTRIBUTING.md](CONTRIBUTING.md). Feedback on the format is welcome in the [issue tracker](https://github.com/EiffL/artifacts/issues).
+
+The logo, colours and usage rules are in [`brand`](brand), with a [brand guide](brand/branding.pdf).
 
 Released under the [MIT license](LICENSE).

@@ -1,0 +1,15 @@
+/* Generated from tokens/colors.json by tools/build_logo.py. Do not edit. */
+:root {
+  --ga-light-ink: #0B0B0C; /* The stroke, the wordmark and text. */
+  --ga-light-marker: #F2A900; /* The point in the mark, and a highlight behind Ink text. Never the colour of text, never a large area. */
+  --ga-light-ground: #FFFFFF; /* Preferred light ground. Paper. */
+  --ga-light-wash: #F4F4F5; /* Quiet surfaces: sidebars, code blocks, hovered rows. */
+  --ga-light-rule: #E4E4E7; /* Hairlines and borders. */
+  --ga-light-graphite: #63636B; /* Secondary text. */
+  --ga-dark-ink: #F4F4F5; /* The stroke, the wordmark and text. */
+  --ga-dark-marker: #FFB81C; /* The point in the mark, and a highlight behind dark text. Lifted for dark grounds. */
+  --ga-dark-ground: #0B0B0C; /* Preferred dark ground. The light scheme's Ink. */
+  --ga-dark-wash: #18181B; /* Quiet surfaces: cards, sidebars, code blocks. */
+  --ga-dark-rule: #27272A; /* Hairlines, borders and hovered rows. */
+  --ga-dark-graphite: #A1A1AA; /* Secondary text. */
+}

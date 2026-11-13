@@ -1,0 +1,18 @@
+/* Generated from brand/tokens/colors.json by brand/tools/build_logo.py. Do not edit. */
+:root {
+  --brand-ink: #0B0B0C;
+  --brand-marker: #F2A900;
+  --brand-ground: #FFFFFF;
+  --brand-wash: #F4F4F5;
+  --brand-rule: #E4E4E7;
+  --brand-graphite: #63636B;
+  --brand-on-marker: #0B0B0C; /* text on a Marker highlight, in both themes */
+}
+.dark {
+  --brand-ink: #F4F4F5;
+  --brand-marker: #FFB81C;
+  --brand-ground: #0B0B0C;
+  --brand-wash: #18181B;
+  --brand-rule: #27272A;
+  --brand-graphite: #A1A1AA;
+}

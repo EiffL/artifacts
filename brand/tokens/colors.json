@@ -1,0 +1,69 @@
+{
+  "$description": "Gist Artifacts brand colours, in the Design Tokens (DTCG) format. This file is the source: tools/build_logo.py draws the logo with these values and generates tokens/colors.css and the viewer's brand.css from them.",
+  "light": {
+    "$description": "For light grounds.",
+    "ink": {
+      "$type": "color",
+      "$value": "#0B0B0C",
+      "$description": "The stroke, the wordmark and text."
+    },
+    "marker": {
+      "$type": "color",
+      "$value": "#F2A900",
+      "$description": "The point in the mark, and a highlight behind Ink text. Never the colour of text, never a large area."
+    },
+    "ground": {
+      "$type": "color",
+      "$value": "#FFFFFF",
+      "$description": "Preferred light ground. Paper."
+    },
+    "wash": {
+      "$type": "color",
+      "$value": "#F4F4F5",
+      "$description": "Quiet surfaces: sidebars, code blocks, hovered rows."
+    },
+    "rule": {
+      "$type": "color",
+      "$value": "#E4E4E7",
+      "$description": "Hairlines and borders."
+    },
+    "graphite": {
+      "$type": "color",
+      "$value": "#63636B",
+      "$description": "Secondary text."
+    }
+  },
+  "dark": {
+    "$description": "For dark grounds.",
+    "ink": {
+      "$type": "color",
+      "$value": "#F4F4F5",
+      "$description": "The stroke, the wordmark and text."
+    },
+    "marker": {
+      "$type": "color",
+      "$value": "#FFB81C",
+      "$description": "The point in the mark, and a highlight behind dark text. Lifted for dark grounds."
+    },
+    "ground": {
+      "$type": "color",
+      "$value": "#0B0B0C",
+      "$description": "Preferred dark ground. The light scheme's Ink."
+    },
+    "wash": {
+      "$type": "color",
+      "$value": "#18181B",
+      "$description": "Quiet surfaces: cards, sidebars, code blocks."
+    },
+    "rule": {
+      "$type": "color",
+      "$value": "#27272A",
+      "$description": "Hairlines, borders and hovered rows."
+    },
+    "graphite": {
+      "$type": "color",
+      "$value": "#A1A1AA",
+      "$description": "Secondary text."
+    }
+  }
+}

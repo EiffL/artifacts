@@ -6,6 +6,8 @@
 
 import { marked } from "marked";
 
+import brand from "./brand.json";
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -15,13 +17,19 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** The brand palette as the custom properties these pages use. */
+function palette(scheme: typeof brand.light): string {
+  return `--bg:${scheme.ground};--fg:${scheme.ink};--muted:${scheme.graphite};--border:${scheme.rule};--code:${scheme.wash};--mark:${scheme.marker}`;
+}
+
 const BASE_CSS = `
-:root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--muted:#666;--border:#e3e3e3;--code:#f5f5f5;--link:#0b5fff}
-@media (prefers-color-scheme:dark){:root{--bg:#0f0f10;--fg:#ececec;--muted:#9a9a9a;--border:#2a2a2d;--code:#1b1b1e;--link:#7aa7ff}}
+:root{color-scheme:light dark;${palette(brand.light)};--on-mark:${brand.light.ink}}
+@media (prefers-color-scheme:dark){:root{${palette(brand.dark)}}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-a{color:var(--link)}
+a{color:inherit;text-underline-offset:.18em}
+::selection,mark{background:var(--mark);color:var(--on-mark)}
 main{max-width:46rem;margin:0 auto;padding:2.5rem 1rem 4rem}
 pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.875em}
 pre{background:var(--code);border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem;overflow:auto}
@@ -57,7 +65,7 @@ hr{border:0;border-top:1px solid var(--border);margin:2em 0}
 .bar{display:flex;justify-content:flex-end;margin-bottom:1rem}
 .bar label{font-size:.8rem;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:.2rem .6rem;cursor:pointer;user-select:none}
 #src{position:absolute;opacity:0;pointer-events:none}
-#src:focus-visible~.bar label{outline:2px solid var(--link)}
+#src:focus-visible~.bar label{outline:2px solid var(--fg)}
 #src:checked~.bar label{background:var(--code);color:var(--fg)}
 .source{display:none;white-space:pre-wrap;word-break:break-word}
 #src:checked~.rendered{display:none}

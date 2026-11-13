@@ -1,18 +1,26 @@
 import { cn } from "@/lib/utils"
 
-/** Brand mark: a framed page with a revision dot. */
+/**
+ * The brand mark in its compact drawing: one open stroke that draws a page and a G, ending at
+ * a point. The geometry is brand/logo/gist-artifacts-compact.svg, and brand/tools/check_assets.py
+ * fails when the two differ.
+ */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 32 32"
       fill="none"
       aria-hidden="true"
       className={cn("size-5 shrink-0", className)}
     >
-      <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3 9h18" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="16.5" cy="15" r="2" fill="currentColor" />
-      <path d="M7.5 13.5h4M7.5 16.5h2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M26 12L18 4H10A4 4 0 0 0 6 8V24A4 4 0 0 0 10 28H22A4 4 0 0 0 26 24V18H16"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="16" cy="18" r="4" fill="var(--brand-marker)" />
     </svg>
   )
 }

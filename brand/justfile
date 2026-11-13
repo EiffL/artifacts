@@ -1,0 +1,31 @@
+# List the recipes
+default:
+    @just --list
+
+# Regenerate everything: SVGs, PNGs, tokens, the copies used by the viewer and the plugin, the web guide and branding.pdf
+build: png site pdf
+
+# SVGs, tokens/colors.css and the viewer's brand.css and brand.json
+svg:
+    uv run tools/build_logo.py --svg-only
+
+# The same, plus every PNG and ICO (needs rsvg-convert and ImageMagick)
+png:
+    uv run tools/build_logo.py
+
+# guide/index.html, the web guide
+site:
+    uv run tools/build_site.py
+
+# branding.pdf (needs Chromium)
+pdf:
+    uv run tools/build_pdf.py
+
+# Check the kit against the brand rules
+check:
+    uv run tools/check_assets.py
+
+# Regenerate the text files, fail on any difference, then check the rules
+ci: svg site
+    git diff --exit-code -- . ../viewer/app/brand.css ../viewer/lib/brand.json
+    uv run tools/check_assets.py

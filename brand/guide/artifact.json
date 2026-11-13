@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "0.1",
+  "title": "Gist Artifacts brand guide",
+  "entrypoint": "index.html",
+  "mediaType": "text/html",
+  "description": "The logo, colours, type and usage rules for Gist Artifacts",
+  "icon": "palette",
+  "generator": "brand/tools/build_site.py",
+  "source": "https://github.com/EiffL/artifacts/tree/main/brand"
+}

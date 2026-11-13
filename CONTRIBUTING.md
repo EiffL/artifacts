@@ -8,6 +8,7 @@
 | [`plugins/gist-artifacts`](plugins/gist-artifacts) | The skill and the publishing tool, packaged as a plugin for Claude Code and Codex. |
 | [`viewer`](viewer) | The viewer, a Next.js application deployed on Vercel. See [`viewer/README.md`](viewer/README.md). |
 | [`examples/hello`](examples/hello) | The source of the example artifact. |
+| [`brand`](brand) | The logo, colours, fonts and brand guide, and the scripts that generate them. See [`brand/README.md`](brand/README.md). |
 | [`tests`](tests) | Tests for the publishing tool, and for the consistency of the specification, the schema and the tool. |
 
 ## The publishing tool
@@ -53,6 +54,18 @@ npx skills add "$PWD" --list             # skill discovery
 ```
 
 The Claude Code manifest has no `version` on purpose, so installed copies follow commits. The Codex manifest has one: bump it when the skill changes.
+
+## Brand
+
+Everything under `brand` except its `tools`, `tokens/colors.json` and `fonts` is generated, and so are the copies the rest of the repository uses: the viewer's icons, social image, `app/brand.css` and `lib/brand.json`, the plugin's `assets`, and `examples/hello/logo.png`. Edit the sources and rebuild instead of editing those files:
+
+```bash
+cd brand
+just build   # needs uv, rsvg-convert, ImageMagick and Chromium
+just check   # brand rules, contrast, and that every copy is up to date
+```
+
+The viewer takes all its colours from `app/brand.css`, so a change to `brand/tokens/colors.json` reaches the interface on the next build. Its logo component is written by hand; `just check` fails if it stops matching the compact mark.
 
 ## Viewer
 
