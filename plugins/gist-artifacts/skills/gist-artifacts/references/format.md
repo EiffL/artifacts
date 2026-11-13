@@ -1,4 +1,4 @@
-# Gist Artifact format (schema 0.2)
+# Gist Artifact format (schema 0.1)
 
 A conforming artifact is a GitHub Gist that contains a file named `artifact.json` and at least one content file. A Gist is flat: files have names, not paths.
 
@@ -6,7 +6,7 @@ A conforming artifact is a GitHub Gist that contains a file named `artifact.json
 
 ```json
 {
-  "schemaVersion": "0.2",
+  "schemaVersion": "0.1",
   "title": "Cosmology Explorer",
   "entrypoint": "index.html",
   "mediaType": "text/html",
@@ -19,7 +19,7 @@ A conforming artifact is a GitHub Gist that contains a file named `artifact.json
 
 | Property | Required | Meaning |
 | --- | --- | --- |
-| `schemaVersion` | yes | Manifest format version, currently `"0.2"`. |
+| `schemaVersion` | yes | Manifest format version, currently `"0.1"`. |
 | `title` | yes | Human-readable title. The Gist description should equal it. |
 | `entrypoint` | yes | Exact name of a file in the same Gist. |
 | `mediaType` | yes | MIME type of the entrypoint. |

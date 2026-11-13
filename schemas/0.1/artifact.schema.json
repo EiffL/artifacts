@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/EiffL/artifacts/main/schemas/0.1/artifact.schema.json",
+  "title": "Gist Artifact manifest",
+  "description": "The artifact.json file of a Gist Artifact, version 0.1. The specification text is authoritative where it and this schema disagree.",
+  "type": "object",
+  "required": ["schemaVersion", "title", "entrypoint", "mediaType"],
+  "properties": {
+    "$schema": {
+      "description": "URL of the JSON Schema that describes this manifest.",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "description": "Version of the Gist Artifacts specification the manifest was written for.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "title": {
+      "description": "Human-readable title of the artifact. Plain text on a single line.",
+      "type": "string",
+      "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$"
+    },
+    "entrypoint": {
+      "description": "Exact name of the content file to present first.",
+      "type": "string",
+      "pattern": "^[^/]+$",
+      "not": { "const": "artifact.json" }
+    },
+    "mediaType": {
+      "description": "Media type of the entrypoint, optionally with parameters.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*(\\s*;.*)?$"
+    },
+    "description": {
+      "description": "One-sentence summary of the artifact. Plain text.",
+      "type": "string"
+    },
+    "icon": {
+      "description": "One generic word suggesting a pictogram, such as chart, map or notes.",
+      "type": "string"
+    },
+    "generator": {
+      "description": "Name of the software that produced the artifact, optionally with its version.",
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "description": "Absolute URL of the code, commit or dataset the artifact was produced from.",
+      "type": "string",
+      "pattern": "^https?://\\S+$"
+    }
+  },
+  "additionalProperties": true
+}

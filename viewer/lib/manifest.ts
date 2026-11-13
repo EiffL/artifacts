@@ -1,7 +1,7 @@
 import { bareMediaType, contentTypeFor } from "./mime";
 
 export const MANIFEST_FILE = "artifact.json";
-export const SUPPORTED_SCHEMA_VERSIONS = ["0.1", "0.2"];
+export const SUPPORTED_SCHEMA_VERSIONS = ["0.1"];
 
 export type Manifest = {
   schemaVersion: string;

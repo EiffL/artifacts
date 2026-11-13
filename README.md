@@ -6,13 +6,13 @@ A **Gist Artifact** is a GitHub Gist that holds a small manifest (`artifact.json
 
 - **Viewer:** https://gist-artifacts.vercel.app
 - **Example artifact:** https://gist-artifacts.vercel.app/g/fab233b353d106e591ae37fa12326ba3 (source in [`examples/hello`](examples/hello))
-- **Format and design:** [`gist-artifacts-spec.md`](gist-artifacts-spec.md)
+- **Specification:** [`gist-artifacts-spec.md`](gist-artifacts-spec.md)
 
-This repository contains the three parts of a working prototype:
+This repository contains the specification and a working prototype built on it:
 
 | Path | What it is |
 | --- | --- |
-| [`gist-artifacts-spec.md`](gist-artifacts-spec.md) | The open format and the viewer design. |
+| [`gist-artifacts-spec.md`](gist-artifacts-spec.md) | The specification of the artifact convention, with its [JSON Schema](schemas/0.1/artifact.schema.json). |
 | [`plugins/gist-artifacts`](plugins/gist-artifacts) | The agent skill and publishing tool, packaged as a plugin for Claude Code and Codex. |
 | [`viewer`](viewer) | The viewer: a Next.js application deployed on Vercel. |
 
@@ -115,7 +115,7 @@ npx skills add "$PWD" --list             # skill discovery
 
 ## Status
 
-A prototype. The format is a draft (schema version `0.2`) and may change. There is no access control: do not publish anything confidential.
+A prototype. The format is a draft (schema version `0.1`) and may change. There is no access control: do not publish anything confidential.
 
 ## License
 

@@ -8,7 +8,7 @@ Use this only when Node.js is unavailable. It needs the GitHub CLI (`gh`) signed
 
    ```json
    {
-     "schemaVersion": "0.2",
+     "schemaVersion": "0.1",
      "title": "My report",
      "entrypoint": "index.html",
      "mediaType": "text/html",

@@ -100,7 +100,7 @@ describe("buildManifest", () => {
   test("defaults the entrypoint to index.html and infers the media type", () => {
     const manifest = buildManifest(null, { title: "Report" }, ["data.json", "index.html"]);
     assert.deepEqual(manifest, {
-      schemaVersion: "0.2",
+      schemaVersion: "0.1",
       title: "Report",
       entrypoint: "index.html",
       mediaType: "text/html",
@@ -126,25 +126,38 @@ describe("buildManifest", () => {
     assert.equal(manifest.mediaType, "application/octet-stream");
   });
 
+  test("rejects a multi-line title, a relative source and a malformed media type", () => {
+    usageError(() => buildManifest(null, { title: "Two\nlines" }, ["index.html"]), /single line/);
+    usageError(() => buildManifest(null, { title: "x", source: "notes.txt" }, ["index.html"]), /absolute http/);
+    usageError(() => buildManifest(null, { title: "x", "media-type": "HTML page" }, ["index.html"]), /not a media type/);
+    const manifest = buildManifest(
+      null,
+      { title: "x", source: "https://example.org/r", "media-type": "text/markdown; variant=GFM" },
+      ["notes.md"],
+    );
+    assert.equal(manifest.mediaType, "text/markdown; variant=GFM");
+  });
+
   test("merges options over an existing manifest and keeps unknown properties", () => {
     const existing = {
       custom: { keep: true },
       mediaType: "text/html",
       entrypoint: "index.html",
       title: "Old",
-      schemaVersion: "0.1",
+      schemaVersion: "9.9",
       description: "Old description",
     };
     const manifest = buildManifest(existing, { title: "New", description: "" }, ["index.html"]);
     assert.equal(manifest.title, "New");
-    assert.equal(manifest.schemaVersion, "0.1");
+    // The version an existing manifest declares is kept, not overwritten.
+    assert.equal(manifest.schemaVersion, "9.9");
     assert.equal("description" in manifest, false);
     assert.deepEqual(manifest.custom, { keep: true });
     assert.deepEqual(Object.keys(manifest), ["schemaVersion", "title", "entrypoint", "mediaType", "custom"]);
   });
 
   test("re-infers the media type when the entrypoint changes", () => {
-    const existing = { schemaVersion: "0.2", title: "T", entrypoint: "index.html", mediaType: "text/html" };
+    const existing = { schemaVersion: "0.1", title: "T", entrypoint: "index.html", mediaType: "text/html" };
     const manifest = buildManifest(existing, { entrypoint: "report.md" }, ["index.html", "report.md"]);
     assert.equal(manifest.mediaType, "text/markdown");
   });

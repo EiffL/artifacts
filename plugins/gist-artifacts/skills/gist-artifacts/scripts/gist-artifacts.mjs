@@ -25,8 +25,8 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.2.0";
-export const SCHEMA_VERSION = "0.2";
+export const VERSION = "0.1.0";
+export const SCHEMA_VERSION = "0.1";
 export const MANIFEST = "artifact.json";
 export const DEFAULT_VIEWER = "https://gist-artifacts.vercel.app";
 
@@ -198,6 +198,9 @@ export function inferMediaType(filename) {
   return dot < 0 ? undefined : MEDIA_TYPES[filename.slice(dot + 1).toLowerCase()];
 }
 
+/** `type/subtype`, optionally followed by parameters. */
+const MEDIA_TYPE = /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*(\s*;.*)?$/;
+
 const MANIFEST_ORDER = [
   "schemaVersion",
   "title",
@@ -240,6 +243,12 @@ export function buildManifest(existing, flags, fileNames) {
   if (typeof merged.title !== "string" || !merged.title.trim()) {
     throw new CliError("A title is required: pass --title.", EXIT.USAGE);
   }
+  if (/[\r\n]/.test(merged.title)) {
+    throw new CliError("The title must be a single line.", EXIT.USAGE);
+  }
+  if (merged.source !== undefined && !/^https?:\/\/\S+$/.test(merged.source)) {
+    throw new CliError(`The source must be an absolute http(s) URL, not "${merged.source}".`, EXIT.USAGE);
+  }
 
   if (merged.entrypoint === undefined) {
     if (fileNames.includes("index.html")) merged.entrypoint = "index.html";
@@ -271,6 +280,9 @@ export function buildManifest(existing, flags, fileNames) {
       `Cannot infer a media type for "${merged.entrypoint}": pass --media-type.`,
       EXIT.USAGE,
     );
+  }
+  if (!MEDIA_TYPE.test(merged.mediaType)) {
+    throw new CliError(`"${merged.mediaType}" is not a media type such as text/html.`, EXIT.USAGE);
   }
 
   const ordered = {};

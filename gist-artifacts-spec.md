@@ -1,24 +1,471 @@
-# Gist Artifacts — Minimal Specification (Draft v0.2)
+# Gist Artifacts Specification
 
-**Status:** Exploratory proposal, 13 November 2026. Not an adopted standard. A working prototype of everything described here (viewer, publishing tool, agent plugin) lives in this repository; §9 lists what it confirmed and what is still open.
+**Spec Version:** 0.1  
+**Status:** Draft  
+**Latest version:** <https://github.com/EiffL/artifacts/blob/main/gist-artifacts-spec.md>  
+**Feedback:** <https://github.com/EiffL/artifacts/issues>
 
-**Changes since v0.1:** multi-file artifacts with relative references and binary assets; a concrete viewer design with one origin per artifact, with an open-source reference implementation on Vercel that includes GitHub sign-in and a dashboard; an explicit dependency policy; data files as agent-writable state; comments via Gist comments; conflict detection and listing in the publishing contract; an agent-integration section; security requirements reduced to a single rule.
+A **Gist Artifact** is a GitHub Gist that carries a small manifest describing its content: what it is called, which file to open, and what kind of file that is. The convention turns an ordinary Gist into a self-describing, versioned unit of content (a report, a visualization, an interactive page, a document) that can be opened, updated, forked and cited.
 
-## 1. Principle
+This document specifies that convention and nothing else: the layout of the Gist, the manifest, how files refer to one another, and how identity and revisions work. Software built around artifacts is out of scope.
 
-A **Gist Artifact** is a portable, versioned collection of files that an agent or human publishes as one GitHub Gist. A small manifest tells any compatible viewer what the collection is and how to display it. GitHub supplies storage, identity, revision history, comments, forks, and sharing links; viewers supply rendering. The format is not coupled to any AI model, agent, chat application, or particular viewer.
+## Table of contents
 
-The primary use case is a standalone document, visualization, or interactive HTML page created during an AI conversation, which can subsequently be revisited, updated, forked, commented on, and shared.
+1. [Status and version](#1-status-and-version)
+2. [Conformance language](#2-conformance-language)
+3. [Terminology](#3-terminology)
+4. [Artifact model](#4-artifact-model)
+5. [Manifest](#5-manifest)
+6. [Entrypoint and media type](#6-entrypoint-and-media-type)
+7. [References between files](#7-references-between-files)
+8. [Identity and revisions](#8-identity-and-revisions)
+9. [Gist metadata](#9-gist-metadata)
+10. [Security and privacy considerations](#10-security-and-privacy-considerations)
+11. [Versioning](#11-versioning)
 
-The proposal has two layers with different rules. The **format** (manifest, file layout, revisions, comments) lives entirely in GitHub Gists and is open: nothing about an artifact is stored anywhere else. The **viewer** is replaceable display infrastructure that holds no artifact data; it may be built for a specific hosting provider, and the reference implementation (§4.4) targets Vercel and is open source. Losing or replacing a viewer loses no content.
+- [Appendix A: Examples](#appendix-a-examples)
+- [Appendix B: Conformance checklist](#appendix-b-conformance-checklist)
+- [Appendix C: Design decisions](#appendix-c-design-decisions)
+- [Appendix D: Change history](#appendix-d-change-history)
+- [References](#references)
 
-The design target is rough parity with vendor-hosted HTML artifacts for everything that does not need access control or a server-side runtime, while keeping what a Git primitive gives for free: real revision history, forks, clones, and offline copies.
+## 1. Status and version
 
-## 2. File layout
+This is version **0.1** of the specification. It is a **draft**: until version 1.0, a new version MAY change the format incompatibly. Every change is recorded in [Appendix D](#appendix-d-change-history).
 
-Each conforming Gist MUST contain a file named `artifact.json` and at least one content file. A Gist is a flat collection of named files; nested directories are not available.
+An artifact declares the version it was written for in the `schemaVersion` property of its manifest ([§5.5](#55-property-definitions)). Version handling is defined in [§11](#11-versioning).
 
-Example:
+## 2. Conformance language
+
+The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, NOT RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as described in BCP 14 [[RFC 2119](#references)] [[RFC 8174](#references)] when, and only when, they appear in all capitals.
+
+Sections 1 to 11 are normative, except for text labelled as a note or an example. The appendices are non-normative.
+
+Requirements are stated for artifacts and for the two roles defined in [§3](#3-terminology): producers, which write artifacts, and consumers, which read them.
+
+## 3. Terminology
+
+| Term | Meaning |
+| --- | --- |
+| **Gist** | A GitHub Gist: a Git repository holding a flat set of named files, together with an ID, an owner, a description and a comment thread. |
+| **Artifact** | A Gist that satisfies [§4.1](#41-general-requirements). |
+| **Manifest** | The file named `artifact.json` in an artifact. |
+| **Content file** | Any file in an artifact other than the manifest. |
+| **Entrypoint** | The content file the manifest names as the one to present first. |
+| **Revision** | A commit in the Gist's history, identified by its full commit hash (40 hexadecimal characters). |
+| **Current revision** | The revision at the head of the Gist's default branch. |
+| **Owner** | The GitHub account the Gist belongs to. |
+| **Producer** | A person or program that creates or changes an artifact. |
+| **Consumer** | A program that reads an artifact, for example to present, copy or index it. |
+
+## 4. Artifact model
+
+### 4.1 General requirements
+
+A Gist is an artifact at a given revision when, in that revision:
+
+1. it contains a file named exactly `artifact.json`;
+2. that file is a valid manifest ([§5](#5-manifest)); and
+3. it contains the content file that the manifest names as its entrypoint ([§6.1](#61-entrypoint)).
+
+Each revision is evaluated on its own. A Gist can be an artifact at one revision and not at another.
+
+A consumer that encounters a Gist which is not an artifact MUST NOT treat it as one. It MAY still offer to present the Gist's files by other means.
+
+### 4.2 Layout
+
+A Gist holds named files and no directories, so an artifact is flat: the manifest and every content file sit side by side.
+
+Example: a minimal artifact.
+
+```text
+artifact.json
+index.html
+```
+
+Example: an artifact with a stylesheet, a data file and an image.
+
+```text
+artifact.json
+index.html
+style.css
+data.json
+figure1.png
+```
+
+### 4.3 File names
+
+- File names are the Gist's file names. They are case-sensitive and MUST be compared exactly, without case folding, Unicode normalization or percent-decoding.
+- A file name MUST NOT contain `/`.
+- The name `artifact.json` is reserved for the manifest.
+- Producers SHOULD NOT use names consisting of `gistfile` followed by digits, with or without an extension. GitHub assigns such names automatically.
+- The manifest declares a media type for the entrypoint only. Consumers infer the type of every other file from its extension, so producers SHOULD give files a conventional extension (`.css`, `.json`, `.png`).
+
+### 4.4 File content
+
+- A content file MAY hold text or binary data. Text files SHOULD be encoded as UTF-8.
+- A file MUST NOT be empty.
+- A file SHOULD be smaller than 10 MB, and an artifact SHOULD contain fewer than 300 files.
+
+> [!NOTE]
+> These limits follow GitHub's. The Gist REST API accepts only non-empty text content, so binary files are added through the Gist's Git repository. When reading, the API returns at most 1 MB of each file's content and at most 300 files. A larger file is available in full from its raw URL, and a file over 10 MB only by cloning the Gist.
+
+## 5. Manifest
+
+### 5.1 Location and encoding
+
+The manifest is the file named `artifact.json`. It MUST be a single JSON object [[RFC 8259](#references)] encoded as UTF-8 without a byte order mark.
+
+### 5.2 Manifest object
+
+Example: a manifest using every property defined by this specification.
+
+```json
+{
+  "schemaVersion": "0.1",
+  "title": "Cosmology Explorer",
+  "entrypoint": "index.html",
+  "mediaType": "text/html",
+  "description": "Interactive exploration of a parameter posterior",
+  "icon": "chart",
+  "generator": "example-tool 1.4",
+  "source": "https://github.com/example/analysis/commit/4c98629"
+}
+```
+
+### 5.3 Required properties
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `schemaVersion` | string | Version of this specification the manifest was written for. |
+| `title` | string | Human-readable title of the artifact. |
+| `entrypoint` | string | Name of the content file to present first. |
+| `mediaType` | string | Media type of the entrypoint. |
+
+### 5.4 Optional properties
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `description` | string | One-sentence summary of the artifact. |
+| `icon` | string | One generic word suggesting a pictogram for listings. |
+| `generator` | string | Name of the software that produced the artifact. |
+| `source` | string | URL of the code, commit or dataset the artifact was produced from. |
+| `$schema` | string | URL of the JSON Schema for this manifest ([§11.3](#113-json-schema)). |
+
+### 5.5 Property definitions
+
+#### `schemaVersion`
+
+- MUST be a string of the form `MAJOR.MINOR`, where both parts are decimal integers.
+- MUST name the version of this specification that the manifest conforms to. For this version the value is `"0.1"`.
+
+Example: valid.
+
+```json
+{ "schemaVersion": "0.1" }
+```
+
+Example: invalid. The first value is a number, not a string. The second has a prefix.
+
+```json
+{ "schemaVersion": 0.1 }
+```
+
+```json
+{ "schemaVersion": "v0.1" }
+```
+
+#### `title`
+
+- MUST be a string containing at least one character that is not white space.
+- MUST NOT contain line breaks, and SHOULD be at most 200 characters long.
+- Is plain text. Consumers MUST NOT interpret it as markup.
+
+#### `entrypoint`
+
+- MUST be the exact name of a content file present in the same revision ([§4.3](#43-file-names)).
+- MUST NOT contain `/`, and MUST NOT be `artifact.json`.
+
+Example: valid.
+
+```json
+{ "entrypoint": "index.html" }
+```
+
+```json
+{ "entrypoint": "report.md" }
+```
+
+Example: invalid. A file name is not a path, so neither `./` nor a directory is allowed, and the manifest cannot be its own entrypoint.
+
+```json
+{ "entrypoint": "./index.html" }
+```
+
+```json
+{ "entrypoint": "pages/index.html" }
+```
+
+```json
+{ "entrypoint": "artifact.json" }
+```
+
+#### `mediaType`
+
+- MUST be a media type [[RFC 6838](#references)] of the form `type/subtype`, optionally followed by parameters (`; name=value`).
+- Is compared case-insensitively. Producers SHOULD write it in lower case.
+- SHOULD agree with the entrypoint's content and file extension.
+
+Example: valid.
+
+```json
+{ "mediaType": "text/html" }
+```
+
+```json
+{ "mediaType": "text/markdown; variant=GFM" }
+```
+
+Example: invalid. Neither value is a media type.
+
+```json
+{ "mediaType": "html" }
+```
+
+```json
+{ "mediaType": "HTML page" }
+```
+
+The meaning of the declared type is defined in [§6.2](#62-media-type).
+
+#### `description`
+
+- MUST be a string. It SHOULD be a single sentence of at most 500 characters.
+- Is plain text. Consumers MUST NOT interpret it as markup.
+
+#### `icon`
+
+- MUST be a string. It SHOULD be a single generic lower-case word, such as `chart`, `map` or `notes`, of at most 40 characters.
+- Is a hint. A consumer MAY map it to a pictogram of its own choosing, and MAY ignore it.
+- MUST NOT be a URL or a file name, and SHOULD NOT be a product or brand name.
+
+#### `generator`
+
+- MUST be a non-empty string naming the software that produced the artifact, optionally with its version.
+- Is informational and unverified ([§10.4](#104-integrity-and-provenance)).
+
+#### `source`
+
+- MUST be an absolute `https:` or `http:` URL identifying what the artifact was produced from, such as a repository, a commit, a notebook or a dataset.
+- Is informational and unverified ([§10.4](#104-integrity-and-provenance)).
+
+#### `$schema`
+
+- MUST be a string holding the URL of the JSON Schema that describes the manifest ([§11.3](#113-json-schema)).
+- Exists for the benefit of editors and validators. Consumers MUST NOT require it and MUST NOT retrieve it in order to read an artifact.
+
+### 5.6 Additional properties
+
+A producer MAY add properties that this specification does not define. Consumers MUST ignore properties they do not recognize, and MUST NOT reject a manifest because of them.
+
+To avoid collisions with future versions, an additional property SHOULD be named with a reverse-domain prefix that its producer controls, for example `org.example.review`. Property names that contain no `.` are reserved for this specification.
+
+### 5.7 Prohibited content
+
+The manifest MUST NOT contain:
+
+- passwords, access tokens or any other secret ([§10.2](#102-secrets));
+- the artifact's own Gist ID, a revision hash of the artifact, or a URL at which the artifact is stored or presented.
+
+Identity and location belong to the Gist, not to the manifest ([§8](#8-identity-and-revisions)). Recording them in the manifest would make every fork and copy wrong.
+
+## 6. Entrypoint and media type
+
+### 6.1 Entrypoint
+
+The entrypoint is the content file that represents the artifact: the file a consumer presents when asked to present the artifact. An artifact has exactly one entrypoint per revision. Other content files exist to be referred to by it ([§7](#7-references-between-files)) or to be retrieved by name.
+
+### 6.2 Media type
+
+The `mediaType` property declares what the entrypoint is, and therefore how it is intended to be presented. This specification defines the following types.
+
+| Media type | The entrypoint is | Intended presentation |
+| --- | --- | --- |
+| `text/html` | An HTML document. It may run scripts and refer to other files ([§7](#7-references-between-files)). | As an interactive page. |
+| `text/markdown` | A Markdown document [[RFC 7763](#references)]. | As a formatted document. |
+| `image/svg+xml` | An SVG image. | As a static image. Scripts inside it are not expected to run. |
+| `image/png`, `image/jpeg`, `image/gif`, `image/webp` | A raster image. | As an image. |
+| `text/plain` | Plain text. | As text. |
+| `application/json` | A JSON document. | As text, formatted for reading. |
+
+A producer MAY declare any other media type.
+
+A consumer that does not recognize a parameter of a media type MUST ignore the parameter, not the media type. For example, `text/markdown; variant=GFM` is at least `text/markdown`.
+
+A consumer that does not support the declared media type SHOULD make the entrypoint available unmodified, and MUST NOT guess a different type from its content.
+
+## 7. References between files
+
+### 7.1 Relative references
+
+A content file MAY refer to another file of the same artifact by its bare file name, optionally prefixed with `./`.
+
+Example: three relative references in an HTML entrypoint.
+
+```html
+<link rel="stylesheet" href="style.css">
+<img src="./figure1.png" alt="Posterior contours">
+<script>fetch("./data.json")</script>
+```
+
+Such a reference denotes the file of that name **in the same revision** as the file that contains it. A consumer presenting one revision of an artifact MUST resolve every relative reference within that revision, and MUST NOT combine files from different revisions.
+
+### 7.2 Location independence
+
+An artifact does not know where it will be presented. Therefore:
+
+- A content file MUST NOT refer to the artifact's own files through references that begin with `/`, that contain a directory component, or that name a host.
+- An artifact MUST NOT depend on the scheme, host name or path under which it is presented.
+- An artifact SHOULD remain usable when browser storage such as cookies, `localStorage` or IndexedDB is unavailable.
+
+### 7.3 External resources
+
+A content file MAY load resources from, and make requests to, locations outside the artifact.
+
+- A reference to an external script or stylesheet MUST name an exact version (`d3@7.9.0`, never `d3` or `d3@7`), so that the artifact means the same thing at every later reading.
+- An artifact intended to be archived or read offline SHOULD have no external dependencies.
+
+### 7.4 Data files
+
+When an artifact presents data that is expected to change, the data SHOULD be kept in a content file of its own, such as `data.json`, which the entrypoint reads through a relative reference. The data can then be replaced without touching the page, and each change is a small revision with a meaningful diff.
+
+## 8. Identity and revisions
+
+### 8.1 Identity
+
+The identity of an artifact is the ID of its Gist, a string of hexadecimal digits assigned by GitHub. The Gist's URL, `https://gist.github.com/<owner>/<gist-id>`, is the artifact's canonical source link.
+
+Nothing inside the artifact repeats this identity ([§5.7](#57-prohibited-content)).
+
+### 8.2 Revisions
+
+Every change to a Gist is a commit, and every commit is a revision of the artifact.
+
+- A reference to an artifact by its Gist ID alone denotes its **current revision**, which changes as the artifact is updated.
+- A reference by Gist ID and commit hash denotes one **immutable revision**. A full 40-character hash MUST be used.
+
+A consumer presenting a specific revision MUST take the manifest and every content file from that revision.
+
+### 8.3 Updating
+
+- An artifact is updated by committing to its Gist. A producer MUST NOT create a new Gist in order to change an existing artifact.
+- A change that touches several files SHOULD be made as a single commit, so that no revision holds a partially updated artifact.
+- Every revision a producer creates SHOULD satisfy [§4.1](#41-general-requirements).
+
+### 8.4 Concurrent changes
+
+A producer that changes an artifact on the basis of a revision it read earlier SHOULD verify that this revision is still the current one before writing. If it is not, the producer MUST NOT discard the newer revision: it re-reads the artifact and reconciles its change, or stops.
+
+> [!NOTE]
+> Git provides this check when a change is pushed: a push that is not a fast-forward of the current revision is rejected.
+
+### 8.5 Forks and copies
+
+A fork of an artifact's Gist is a different artifact with its own identity. GitHub records the Gist it was forked from; the manifest does not.
+
+The files of an artifact, copied to any other location, still form a complete description of the artifact at that revision. This specification defines the convention for GitHub Gists only.
+
+## 9. Gist metadata
+
+### 9.1 Description
+
+The Gist's description SHOULD be equal to the manifest's `title`. Listings of Gists show the description without reading file contents, so this keeps an artifact recognizable wherever Gists are listed.
+
+A producer that changes the `title` SHOULD change the description in the same operation.
+
+### 9.2 Visibility
+
+An artifact's Gist MAY be public or secret. This specification attaches no further meaning to the distinction. Its consequences for confidentiality are described in [§10.1](#101-confidentiality).
+
+### 9.3 Discussion
+
+The Gist's comment thread is the artifact's discussion thread. Comments belong to the artifact as a whole. They are not part of any revision and are not anchored to a location in its content.
+
+## 10. Security and privacy considerations
+
+### 10.1 Confidentiality
+
+A secret Gist is unlisted, not private: anyone who has its ID or URL can read every revision of it. There is no access control. An artifact MUST NOT be relied on to keep its content confidential.
+
+Deleting a Gist removes the artifact, but not forks or copies that others have made.
+
+### 10.2 Secrets
+
+Neither the manifest nor any content file may contain credentials. Because every revision remains readable, a secret committed once stays exposed after it is removed from the current revision. A producer that publishes a secret by mistake MUST treat it as compromised.
+
+### 10.3 Active content
+
+The files of an artifact are chosen by its owner and can contain executable content, including scripts in HTML and SVG. Consumers MUST treat every file of an artifact as untrusted.
+
+A consumer that executes artifact content MUST do so in a context that is isolated from the consumer's own credentials and from the data of other artifacts.
+
+### 10.4 Integrity and provenance
+
+A commit hash identifies the exact content of a revision. A reference to the current revision does not: it denotes whatever the owner publishes next. A reference that must keep its meaning SHOULD name a revision ([§8.2](#82-revisions)).
+
+The `generator` and `source` properties are statements made by the producer. Nothing verifies them.
+
+### 10.5 External resources
+
+An artifact that loads external resources ([§7.3](#73-external-resources)) discloses each reader's network address to the hosts of those resources, and depends on those hosts continuing to serve the same content. Naming an exact version does not prove integrity. Producers MAY add Subresource Integrity metadata to external scripts and stylesheets.
+
+## 11. Versioning
+
+### 11.1 Specification versions
+
+Versions of this specification are numbered `MAJOR.MINOR`.
+
+- A new **minor** version adds to the format compatibly: new optional properties, newly defined media types, clarifications.
+- A new **major** version may change the format incompatibly.
+- While `MAJOR` is `0`, a new minor version MAY also be incompatible.
+
+### 11.2 Version declared by an artifact
+
+- A producer MUST set `schemaVersion` to the version of this specification the manifest conforms to.
+- A consumer MUST NOT reject a manifest only because its `schemaVersion` names a later minor version than the consumer implements. It processes the manifest by the rules it implements and ignores what it does not recognize ([§5.6](#56-additional-properties)).
+- A consumer that meets a `MAJOR` version it does not implement SHOULD report that the artifact uses an unsupported version instead of presenting it incorrectly.
+
+### 11.3 JSON Schema
+
+A JSON Schema for the manifest of each version is published in this repository under `schemas/<version>/artifact.schema.json`. For this version:
+
+<https://raw.githubusercontent.com/EiffL/artifacts/main/schemas/0.1/artifact.schema.json>
+
+A manifest MAY refer to it through the `$schema` property. The schema is an aid to authoring and validation. If the schema and this document disagree, this document is authoritative.
+
+## Appendix A: Examples
+
+*This appendix is non-normative.*
+
+### A.1 A single page
+
+```text
+artifact.json
+index.html
+```
+
+`artifact.json`:
+
+```json
+{
+  "schemaVersion": "0.1",
+  "title": "Quarterly summary",
+  "entrypoint": "index.html",
+  "mediaType": "text/html"
+}
+```
+
+### A.2 A page with data and assets
 
 ```text
 artifact.json
@@ -31,369 +478,142 @@ figure1.png
 
 ```json
 {
-  "schemaVersion": "0.2",
+  "$schema": "https://raw.githubusercontent.com/EiffL/artifacts/main/schemas/0.1/artifact.schema.json",
+  "schemaVersion": "0.1",
   "title": "Cosmology Explorer",
   "entrypoint": "index.html",
   "mediaType": "text/html",
   "description": "Interactive exploration of a parameter posterior",
   "icon": "chart",
-  "generator": "claude-code",
+  "generator": "example-tool 1.4",
   "source": "https://github.com/example/analysis/commit/4c98629"
 }
 ```
 
-Required properties:
+`index.html` refers to its siblings by bare name:
 
-| Property | Meaning |
-| --- | --- |
-| `schemaVersion` | Manifest format version; currently `"0.2"`. |
-| `title` | Human-readable artifact title. |
-| `entrypoint` | Exact name of a file present in the same Gist. |
-| `mediaType` | MIME type of the entrypoint, e.g. `text/html`, `text/markdown`, `image/svg+xml`, `text/plain`, or `application/json`. |
-
-Optional properties:
-
-| Property | Meaning |
-| --- | --- |
-| `description` | One-sentence summary, shown in listings. |
-| `icon` | One generic word (`chart`, `map`, `notes`) a viewer may map to a tab or listing icon. |
-| `generator` | Free-form name of the tool or agent that produced the artifact. |
-| `source` | URL of the code, commit, or dataset the artifact was produced from. |
-
-Unknown properties MUST be ignored by readers, preserving forward compatibility.
-
-The manifest MUST be valid UTF-8 JSON and MUST NOT carry passwords, access tokens, or other secrets. The Gist description SHOULD be set to the artifact title, so that GitHub's own listing stays readable and a dashboard can list artifacts without fetching each manifest (§4.5).
-
-### 2.1 Relative references and assets
-
-An HTML entrypoint MAY reference any other file in the same Gist by its bare name (`figure1.png`, `./data.json`, `style.css`). A viewer MUST resolve such references to the file of that name **at the same revision as the entrypoint**, served with a content type inferred from the file extension.
-
-Binary files (images, fonts, PDFs) are permitted. The Gist REST API only writes text, so binaries are added by pushing to the Gist's Git repository (§5).
-
-Individual files SHOULD stay under 10 MB. Larger files still work but cannot be cached by the reference viewer's CDN (§4.4) and are better hosted elsewhere and referenced by URL.
-
-### 2.2 Data files as state
-
-Authors SHOULD keep data that changes separately from the page that displays it: the page fetches `./data.json` (or CSV, etc.) at load time, and an agent later updates only that file. Each update is an ordinary revision, so the state is versioned and diffable, and the page code is untouched. A page MAY re-fetch its data file periodically to pick up updates without a reload.
-
-This covers trackers, logs, dashboards, and result tables that an agent maintains. State written by *viewers* (polls, sign-up sheets) is not provided by the format; see §7.
-
-Per-viewer state (a remembered tab, a filter, a draft) belongs in `localStorage`, which works because each artifact has its own origin (§4.1).
-
-## 3. Identity and revisions
-
-- **Artifact identity:** the GitHub Gist ID. The original Gist URL is the canonical source link.
-- **Current version:** the current Gist state at the time of reading.
-- **Immutable revision:** a Git commit SHA in that Gist's revision history. A multi-file update SHOULD be a single commit so that no revision is ever half-updated.
-- **Update:** edit files in the existing Gist; do not create another Gist merely to update an artifact.
-- **Fork:** a GitHub Gist fork, with a new identity. GitHub records the parent (`fork_of`), so provenance needs no manifest field.
-- **Export:** `git clone` of the Gist, or GitHub's ZIP download. Because references are relative, a clone opens locally and can be moved to any Git repository or static host unchanged.
-
-The manifest intentionally contains no Gist ID, revision SHA, or storage URL: these belong to the storage layer and would become stale on forks or exports.
-
-## 4. Rendering contract
-
-1. A viewer retrieves the specified Gist (current, or at a given revision) and parses `artifact.json`.
-2. It validates the entrypoint's presence and chooses a renderer using `mediaType`.
-3. It displays the content without modifying the source Gist.
-4. It provides a link to the original Gist and SHOULD expose source, revision history, and comments.
-
-Renderers:
-
-| MIME type | Display |
-| --- | --- |
-| `text/html` | The page itself, scripts enabled, in the artifact's own origin. |
-| `text/markdown` | Rendered document with source toggle. |
-| `image/svg+xml` | Displayed as an image. |
-| `text/plain`, `application/json` | Text/code preview. |
-
-Raw JSX/TSX compilation is not part of the specification; compiled output can be published as ordinary files.
-
-### 4.1 Viewer URL scheme
-
-The recommended viewer is a single small proxy service behind a wildcard domain, with no database. A proxy is required, not optional: GitHub serves raw Gist HTML and JavaScript as `text/plain` with `nosniff` and a sandboxing CSP, so browsers will not run them directly from GitHub.
-
-```text
-https://<gist-id>.viewer.example/               entrypoint, current revision
-https://<gist-id>.viewer.example/<file>         any file, current revision
-https://<gist-id>.viewer.example/@<sha>/        entrypoint, pinned revision
-https://<gist-id>.viewer.example/@<sha>/<file>  any file, pinned revision
-https://viewer.example/g/<gist-id>[?rev=<sha>]  framed view: title bar, source,
-                                                history and comments links
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Cosmology Explorer</title>
+  </head>
+  <body>
+    <img src="figure1.png" alt="Posterior contours">
+    <script>
+      fetch("./data.json")
+        .then((response) => response.json())
+        .then((data) => console.log(data.samples.length));
+    </script>
+  </body>
+</html>
 ```
 
-For each request the service looks up the Gist (at `<sha>` if given), finds the named file, fetches its raw content, and returns it with a content type inferred from the extension. Gist file names cannot contain `/`, so the `@<sha>/` prefix never collides with a file. Properties that follow from this shape:
+Updating the samples means committing a new `data.json`. The page is untouched, and both the old and the new result remain available as revisions.
 
-- **Relative references work unmodified**, and under `/@<sha>/` every sub-resource resolves to the same revision, so revisions never mix.
-- **One origin per artifact.** `localStorage` and similar APIs work and cannot collide between artifacts, and artifact scripts never run in an origin that holds viewer or GitHub credentials.
-- **Caching is trivial.** Pinned responses are immutable and can be cached indefinitely; current-revision responses get a short TTL (about a minute), which is also the delay before an update becomes visible.
-- **Size and rate limits are handled server-side.** The service reads raw file URLs, which avoids the API's 1 MiB content truncation and, addressed by commit SHA, needs no API quota at all (§4.4).
-
-The link an agent hands to a person is the framed view; the bare subdomain is what the frame embeds and what a person opens for a full-page view.
-
-**Path mode.** A viewer without a wildcard domain can serve the same files from a path on its own origin:
+### A.3 A document
 
 ```text
-https://viewer.example/a/<gist-id>/               entrypoint, current revision
-https://viewer.example/a/<gist-id>/@<sha>/<file>  any file, pinned revision
+artifact.json
+report.md
+figure1.png
 ```
 
-Every such response then carries `Content-Security-Policy: sandbox allow-scripts …` without `allow-same-origin`, which gives the page an opaque origin. Scripts and relative references work, but `localStorage`, cookies and service workers do not, and the page cannot act on the viewer's own origin. This is the degraded mode the storage rule of §5.2 exists for. The reference implementation runs in path mode until a wildcard domain is configured, and redirects path URLs to the subdomain once one is.
+`artifact.json`:
 
-A zero-infrastructure fallback is a static single-origin viewer in the style of GistPreview or Gist Host, which fetches the Gist client-side and rewrites relative references to blob URLs. It needs no server, but all artifacts share one origin (authors should then prefix `localStorage` keys) and every visitor spends their own unauthenticated API quota.
-
-### 4.2 Dependencies and network access
-
-Pages MAY load external scripts, styles, and fonts, and MAY make network requests to any service. Two rules keep artifacts reproducible:
-
-- An external script or stylesheet URL MUST name an exact version (`d3@7.9.0`, never `d3` or `d3@7`).
-- Authors SHOULD prefer the large public CDNs (cdnjs, jsDelivr, unpkg, Google Fonts) and SHOULD inline anything small.
-
-A page that must work offline or be archived SHOULD be fully self-contained.
-
-### 4.3 Security
-
-Secret Gists are unlisted, not private: possession of the URL grants access. This is the accepted sharing model. There is no access control, and artifacts should not contain anything that must stay confidential.
-
-The single requirement on viewers is that artifact content MUST NOT execute in an origin that holds credentials (viewer sessions, GitHub tokens). The per-artifact origin of §4.1 satisfies this by construction, and so does the opaque origin of path mode.
-
-### 4.4 Reference implementation on Vercel
-
-The reference viewer is one open-source Vercel project: a Next.js application whose route handlers serve artifact files and whose pages provide the framed view and a signed-in dashboard (§4.5), with the Vercel CDN in front. It has no database and no build-time knowledge of any artifact. Anyone can deploy their own copy against their own domain; artifacts are not tied to a particular deployment.
-
-**Domains.** The project is assigned `viewer.example` and the wildcard `*.viewer.example`. Vercel supports wildcard domains on all plans, with automatic certificates, provided it can answer the DNS challenge: either the domain uses Vercel's nameservers, or the `_acme-challenge` subdomain is delegated to Vercel while DNS stays with the existing provider. A dedicated domain (or a dedicated sub-zone such as `*.artifacts.example.org`) keeps artifact origins apart from any other site.
-
-**Request handling.** The application's request proxy (Next.js middleware) branches on the `Host` header and rewrites artifact subdomains to an internal file-serving route:
-
-1. *Apex host* serves the framed view `/g/<gist-id>`, the dashboard, sign-in, the revalidation endpoint, and a landing page.
-2. *`<gist-id>` subdomain* (32 hexadecimal characters) serves artifact files:
-   1. Parse the path into an optional `@<sha>/` prefix and a file name; an empty name means the manifest's `entrypoint`.
-   2. Resolve three facts, none of which uses GitHub's REST API or needs a token:
-      - the Gist's **owner**, from the redirect `gist.github.com/<id>` → `gist.github.com/<owner>/<id>` (cached for weeks; an owner never changes);
-      - the **current revision**, from Git's smart-HTTP ref advertisement at `gist.github.com/<id>.git/info/refs?service=git-upload-pack`, unless the URL pins one (cached for 30 seconds);
-      - the **manifest** at that revision, when the request is for the entrypoint (cached per revision).
-   3. Stream the file from `gist.githubusercontent.com/<owner>/<id>/raw/<commit-sha>/<file>`. Every file is addressed by commit SHA, so all files of one page load come from the same revision and GitHub's own five-minute caching of unpinned raw URLs never applies. Streaming matters because non-streamed function responses are capped at 4.5 MB. `Range` and `If-None-Match` are passed through.
-   4. Set `Content-Type` from the file extension, drop GitHub's own `Content-Security-Policy` and `text/plain` typing, and add `Access-Control-Allow-Origin: *`, `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer` (an unlisted Gist's ID is its only protection, and in subdomain mode the ID is part of the origin).
-   5. For a non-HTML `mediaType`, the root URL returns a small wrapper page that renders the entrypoint (Markdown, SVG, text); the file itself stays available at `/<file>`.
-   6. A Gist without `artifact.json` is not a conforming artifact, but an `index.html` in it is still displayed, so plain HTML Gists keep working.
-
-**Caching.** Two layers, both keyed per artifact because the CDN cache key includes the host:
-
-| Request | Browser | Vercel CDN |
-| --- | --- | --- |
-| Pinned (`/@<sha>/…`) | `Cache-Control: public, max-age=31536000, immutable` | Same; never revalidated |
-| Current | `Cache-Control: public, max-age=0, must-revalidate` | `Vercel-CDN-Cache-Control: max-age=30`, tagged `Vercel-Cache-Tag: gist-<gist-id>` |
-
-The owner, current revision and manifest are additionally kept in Vercel's Runtime Cache, so the many file requests of one page load resolve them once. There is deliberately no stale-while-revalidate on current responses: a rarely viewed artifact must not show an old revision on the first visit after an update. Without a notification (below), an update becomes visible within about a minute.
-
-**Instant updates.** Gists have no webhooks, so the viewer cannot be told about a change by GitHub. Instead the publishing tool calls `POST https://viewer.example/api/revalidate?gist=<gist-id>` after every `publish` or `update`. The endpoint re-reads the Gist's current revision and deletes the CDN entries tagged `gist-<gist-id>`, at most once per revision. It needs no authentication because repeating the call for the same revision does nothing, and creating a new revision requires owning the Gist. Deletion is used instead of invalidation because invalidation serves the stale copy once more.
-
-**Framed view.** `viewer.example/g/<gist-id>` is a server-rendered shell around a sandboxed iframe of the artifact. It shows the title and owner, a revision picker built from the Gist's `history`, and a details panel with the file list, history, comment thread and links to the source Gist. It also emits Open Graph tags from the manifest so shared links unfurl with a title and description. This is the one place the REST API is used for anonymous visitors: one `GET /gists/{id}` per revision, cached. If the API is unavailable the artifact still displays, without history and file list.
-
-**Limits that shape the design.**
-
-- The CDN caches function responses up to 10 MB; larger files are served but hit the function every time (hence the guidance in §2.1).
-- CDN and Runtime Cache entries are per region and best-effort. Because file serving uses no REST quota, this only costs a few extra requests to GitHub's Git and raw hosts. The framed view's metadata call authenticates with the OAuth app's client ID and secret (or a plain token), which is meant to lift the anonymous limit that shared serverless addresses exhaust quickly.
-- Wildcard domains apply to the production deployment. Local development uses `<gist-id>.localhost`, which browsers resolve without configuration.
-- Vercel's Hobby plan is limited to non-commercial use; an organisation running a shared viewer would use a paid plan.
-
-**Repository layout.**
-
-```text
-viewer/proxy.ts                          host routing: <gist-id> subdomain -> /a/<gist-id>/...
-viewer/app/a/[id]/[[...path]]/route.ts   file serving, wrapper pages (also the path-mode URL)
-viewer/app/g/[id]/page.tsx               framed view
-viewer/app/dashboard/                    signed-in dashboard (§4.5)
-viewer/app/actions.ts                    star, fork, comment, edit, delete
-viewer/app/api/revalidate/route.ts       cache refresh after a publish
-viewer/app/api/auth/                     GitHub sign-in
-viewer/lib/gist-source.ts                owner, revision and raw-file resolution without the REST API
-viewer/lib/github.ts                     REST client for metadata and the dashboard
-viewer/lib/session.ts                    encrypted cookie session
-viewer/components/ui/                    shadcn/ui components
+```json
+{
+  "schemaVersion": "0.1",
+  "title": "Calibration report",
+  "entrypoint": "report.md",
+  "mediaType": "text/markdown"
+}
 ```
 
-Nothing in the format depends on Vercel. The same service fits any platform that offers wildcard subdomains, a function runtime, and an HTTP cache.
+`report.md` includes the figure with a relative reference: `![Residuals](figure1.png)`.
 
-### 4.5 Sign-in and dashboard
+## Appendix B: Conformance checklist
 
-Viewing an artifact never requires an account. Signing in with GitHub adds a personal dashboard for browsing and managing one's own artifacts, the equivalent of a vendor's artifact gallery. It stays within the no-database rule: everything shown is read live from the GitHub API with the signed-in person's own token.
+*This appendix is non-normative. It summarizes the requirements of the normative sections and does not add to them.*
 
-**Authentication.** The standard GitHub OAuth web flow, implemented directly in three small route handlers. The GitHub access token is kept only in an encrypted (JWE), HTTP-only session cookie; nothing is stored server-side.
+**The Gist**
 
-- The session cookie is host-only on the apex domain and uses the `__Host-` name prefix, so it is never sent to artifact subdomains and artifact scripts cannot overwrite it. This is what keeps §4.3's single rule true once the service holds credentials.
-- Sign-in asks for the `gist` scope, which is needed to list secret Gists and to perform the write actions below. A sign-in without any scope is also supported (`/api/auth/login?scope=public`): it lists public artifacts only and turns the write actions off.
-- Write actions are server actions that re-read the session, accept only same-origin POSTs, and call GitHub with the person's own token. GitHub remains the authority on what they may do.
+- [ ] contains a file named exactly `artifact.json`
+- [ ] contains the file named by `entrypoint`
+- [ ] has no empty files
+- [ ] has a description equal to the manifest's `title` (recommended)
 
-**Dashboard.** Built on the shadcn/ui dashboard block (sidebar, cards, data table), on the apex host:
+**The manifest**
 
-| View | Content | Source |
-| --- | --- | --- |
-| My artifacts | Table of the person's artifacts: title, description, visibility, last update, file and comment counts; search, sort, filter | `GET /gists`, filtered to Gists containing `artifact.json` |
-| Starred | Artifacts the person starred, as a "saved" or "shared with me" shelf | `GET /gists/starred`, same filter |
-| Artifact detail | The framed view and its details panel: file list, revision history with per-revision links, comment thread, fork parent | `GET /gists/{id}`, `/comments` |
+- [ ] is one JSON object, encoded as UTF-8
+- [ ] has `schemaVersion`, `title`, `entrypoint` and `mediaType`, all strings
+- [ ] `schemaVersion` has the form `MAJOR.MINOR`
+- [ ] `title` is not blank and has no line breaks
+- [ ] `entrypoint` contains no `/` and is not `artifact.json`
+- [ ] `mediaType` has the form `type/subtype`, with optional parameters
+- [ ] `source`, if present, is an absolute `https:` or `http:` URL
+- [ ] contains no secret, no Gist ID, no revision hash and no storage URL
 
-The list response includes file names and the Gist description but not file contents, which is why §2 asks for the description to equal the title: a listing can be rendered from one paginated call. The reference dashboard additionally reads each listed manifest through its content-addressed raw URL (cached indefinitely) to show descriptions and media types, and falls back to the Gist description.
+**The content**
 
-**Actions**, all direct GitHub API calls with the person's token: copy the share link or a pinned-revision link, star or unstar, fork, post a comment from the framed view, edit title and description (rewrites `artifact.json` and the Gist description in one revision), and delete (with confirmation).
+- [ ] refers to its own files by bare name only
+- [ ] does not depend on the address at which it is presented
+- [ ] names an exact version for every external script and stylesheet
+- [ ] contains no credentials
 
-Because the dashboard is only a view over GitHub, an artifact published by any tool appears in it immediately, and nothing is lost if a person never signs in or the service disappears.
+## Appendix C: Design decisions
 
-## 5. Publishing contract
+*This appendix is non-normative.*
 
-An agent-facing implementation provides these operations:
+### Why GitHub Gists?
 
-```text
-publish(files, manifest, visibility)       -> { gistId, revision, sourceUrl, viewerUrl }
-update(gistId, files, baseRevision?)       -> { gistId, revision, viewerUrl }
-open(gistId, revision?)                    -> { manifest, files, revision }
-list()                                     -> [ { gistId, title, description, updatedAt } ]
-comments(gistId)                           -> [ { id, author, body, createdAt } ]
-reply(gistId, body)                        -> { id }
-```
+A Gist already provides what an artifact needs: storage, a stable identifier, an owner, a complete history, forks, a comment thread, and a link that can be shared. Building on it means the convention needs no service of its own, and an artifact outlives any software written to display it.
 
-These are conceptual operations, not a specified network API.
+### Why a manifest at all?
 
-- **`update` is partial.** Files passed are added or replaced, files omitted are kept, and a file passed as `null` is removed. The manifest is an ordinary file in this map.
-- **Conflict detection.** If `baseRevision` is given and is not the Gist's current revision, `update` MUST fail and return the current revision so the caller can merge. Implemented over Git this is free: a push that is not a fast-forward is rejected.
-- **`list`** returns the owner's Gists that contain an `artifact.json`. GitHub's Gist listing includes file names, so this is a filter over one paginated call, not a registry.
-- **`comments` / `reply`** map directly to Gist comments (§6).
-- **Viewer notification.** After a successful `publish` or `update`, the implementation SHOULD notify the configured viewer so the change is visible immediately (§4.4). The viewer base URL is configuration of the publishing tool, never part of the artifact.
+Without one, a reader must guess: which of several files to open, whether a `.md` file is a document or a note to self, what to call the result. A manifest replaces those guesses with four declared facts. It also marks intent: a Gist with an `artifact.json` was published to be presented.
 
-Implementations can use the GitHub Gist REST API, `gh`, or Git. Git (`https://gist.github.com/<gist-id>.git`) is the most general write path: it handles binary files, makes a multi-file update one commit, and provides conflict detection. Writes require authorization from the Gist owner.
+### Why is the manifest so small?
 
-The reference tool creates a Gist through the REST API (the only way to create one), updates text files with a single REST `PATCH`, and switches to a Git clone-commit-push whenever a binary file or a `baseRevision` is involved. It compares content before writing, because GitHub records a new revision even when a file is re-sent unchanged.
+Every required property is something a reader cannot proceed without. Everything a Gist already records (owner, dates, history, visibility) is left to the Gist, so the two can never disagree.
 
-### 5.1 Agent integration
+### Why is there no identifier or URL in the manifest?
 
-No dedicated server is needed where the agent has a shell. The packaging is a **skill plus one helper script**:
+Because the same files must remain a correct artifact after a fork, a clone or a copy. Identity is a property of where the artifact is stored, not of what it contains.
 
-- The skill (`SKILL.md`, the cross-agent Agent Skills format) carries this contract and the authoring guidance of §5.2.
-- The script, a single dependency-free Node.js file shipped inside the skill, implements the six operations, validates the manifest (entrypoint exists, media type known), and prints the viewer URL and pinned revision. It takes the GitHub token from the environment or from `gh auth token`.
+### Why declare the media type instead of inferring it?
 
-One directory in this repository, `plugins/gist-artifacts`, is distributed three ways without duplication:
+File extensions are ambiguous about intent. An `.html` file may be a page to display or source code to read; a `.json` file may be the content or merely data for it. Declaring the type states how the entrypoint is meant to be presented, and gives variants of a format a place to be named.
 
-| Channel | Manifest in this repository | Install |
-| --- | --- | --- |
-| Claude Code plugin marketplace | `.claude-plugin/marketplace.json`, `plugins/gist-artifacts/.claude-plugin/plugin.json` | `/plugin marketplace add <owner>/<repo>` then `/plugin install gist-artifacts@gist-artifacts` |
-| Codex plugin marketplace | `.agents/plugins/marketplace.json`, `plugins/gist-artifacts/.codex-plugin/plugin.json` | `codex plugin marketplace add <owner>/<repo>` then `codex plugin add gist-artifacts@gist-artifacts` |
-| Skill only, any agent | none needed (the `skills` CLI reads the Claude marketplace file) | `npx skills add <owner>/<repo>` |
+### Why flat files?
 
-The skill refers to its script by a path relative to its own directory, because each agent installs skills in a different place and only some substitute path variables.
+Because a Gist is flat. Accepting that limit keeps every artifact readable through GitHub's own interface and API, and it is rarely a constraint for content of this size. Content that needs a directory tree is better served by a repository.
 
-An **MCP server** exposing the same six operations is only needed for agents without shell access (chat surfaces, hosted agents). It would be a remote server using GitHub OAuth with the `gist` scope; it adds reach, not capability.
+### Why commits instead of version numbers?
 
-### 5.2 Authoring guidance
+A commit hash is assigned by the storage layer, cannot be reused, and identifies the exact bytes of every file. A version number in the manifest would be one more thing to keep in step, and could not guarantee any of that.
 
-Agents producing HTML artifacts SHOULD:
+## Appendix D: Change history
 
-- give the page a short `<title>` matching the manifest title;
-- support light and dark themes via `prefers-color-scheme`, with an explicit body background;
-- lay out correctly at phone width without horizontal scrolling;
-- wrap `localStorage` access in `try`/`catch` and render correctly without it;
-- keep changing data in data files (§2.2) rather than in the page source.
+*This appendix is non-normative.*
 
-## 6. Comments and feedback
+### 0.1 (November 2026)
 
-A Gist's native comment thread is the artifact's comment thread. Viewers SHOULD link to it or display it. Agents read feedback with `comments` and answer with `reply`; a person asking for a change in a comment and an agent answering with a new revision plus a reply is the intended review loop.
+- Initial version.
 
-Comments are per-artifact, not anchored to a location in the page. A commenter can quote the passage they mean using Markdown quoting. Commenting requires a GitHub account.
+## References
 
-## 7. Non-goals
+### Normative
 
-- No access control or private sharing beyond unlisted links.
-- No viewer-writable shared state, databases, or server-side code. A page that needs them can call its own backend (§4.2 permits this).
-- No conversation or agent-identity schema beyond the optional `generator` and `source` fields.
-- No search service or registry: `list` and the dashboard (§4.5) only show a person's own and starred Gists, read live from GitHub.
-- No required build tool, dependency installation, JSX compilation, or framework.
-- No mandated hosted viewer service (the Vercel implementation of §4.4 is a reference, not a requirement), and no guarantee of long-term preservation independent of GitHub (a clone is the preservation path).
+- **RFC 2119**: Bradner, S., "Key words for use in RFCs to Indicate Requirement Levels", BCP 14, March 1997. <https://www.rfc-editor.org/rfc/rfc2119>
+- **RFC 8174**: Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words", BCP 14, May 2017. <https://www.rfc-editor.org/rfc/rfc8174>
+- **RFC 8259**: Bray, T., Ed., "The JavaScript Object Notation (JSON) Data Interchange Format", December 2017. <https://www.rfc-editor.org/rfc/rfc8259>
+- **RFC 6838**: Freed, N., Klensin, J., and T. Hansen, "Media Type Specifications and Registration Procedures", BCP 13, January 2013. <https://www.rfc-editor.org/rfc/rfc6838>
 
-Candidate extensions for a later revision: **templates** (a manifest field naming another Gist Artifact whose page renders this artifact's data files, giving reusable slide, document, and dashboard types), anchored comments, and content hashes.
+### Informative
 
-## 8. Existing work and positioning (research snapshot)
-
-This is a proposal for interoperability, **not a claim of inventing Gist-hosted HTML artifacts**.
-
-Closest direct precedents:
-
-- [GistPreview](https://github.com/gistpreview/gistpreview.github.io) renders a Gist's `index.html` (or a selected file) as HTML.
-- [Gist Host](https://simonwillison.net/2026/Jan/1/gisthost/) by Simon Willison updates that pattern. Willison's `claude-code-transcripts --gist` already publishes AI-related HTML output and returns a live Gist Host URL.
-
-Related agent artifact products:
-
-- [Open Artifacts](https://github.com/open-artifacts-ai/open-artifacts): provider-independent publication, versions, viewing, sharing, MCP, and live data; uses Cloudflare rather than Gists.
-- [Artifact Server](https://github.com/plannotator/artifact-server): self-hostable, MCP/agent-skill integration, revision and review workflows; not Gist-backed.
-- [AgentUse Artifacts](https://github.com/agentuse/artifacts): local-first feed of agent outputs and revision snapshots.
-- [coda0HQ/open-artifacts](https://github.com/coda0HQ/open-artifacts): versioned HTML/Markdown publication with a recipe/manifest approach; Cloudflare-based.
-
-**Distinctive scope:** a *tiny, declarative manifest layered on an existing Git primitive*, with an independently implementable viewer. GistPreview/Gist Host already demonstrate the viewer half; agent artifact servers demonstrate the agent workflow half. The value of this proposal would be an interoperable contract connecting the two, not a new hosting platform.
-
-### Comparison with vendor-hosted artifacts
-
-| Capability | Vendor-hosted (e.g. Claude artifacts) | Gist Artifacts v0.2 |
-| --- | --- | --- |
-| Interactive HTML page, updated in place | Yes | Yes |
-| Multi-file and binary assets | Yes | Yes (§2.1) |
-| Per-artifact origin, working `localStorage` | Yes | Yes (§4.1) |
-| Revision history | Yes | Yes, as Git commits; forkable and clonable |
-| Conflict detection on update | Yes | Yes (§5) |
-| Agent-maintained data behind a page | Yes (managed database) | Yes (data files, §2.2) |
-| Comments reaching the agent | Yes, anchored | Yes, unanchored (§6) |
-| Listing of one's artifacts | Yes (gallery) | Yes (`list`, and the dashboard of §4.5) |
-| External libraries and network access | Restricted allowlist | Open, version-pinned (§4.2) |
-| Offline copy, export, self-hosting | No | Yes |
-| Works with any agent or viewer | No | Yes |
-| Private sharing with per-person access | Yes | No |
-| Viewer-written shared state, viewer identity | Yes | No |
-| Page calling a model or connected data sources | Yes | No (bring your own backend) |
-| Ready-made types (slides, documents, dashboards) | Yes | No (templates are a candidate extension) |
-
-## 9. What the prototype confirmed, and what is still open
-
-Confirmed on 13 November 2026 against live Gists, the deployed prototype and the current Vercel documentation:
-
-**GitHub**
-
-- Gist IDs are 32 hexadecimal characters, so they are valid DNS labels.
-- `GET /gists/{id}` returns, per file, a content type, size, a `truncated` flag, inline content (base64 for binary files), and a `raw_url` containing a per-file content hash. It also returns the revision `history` and the comment count. `GET /gists/{id}/{sha}` returns the file set of that revision in the same shape.
-- Raw Gist URLs serve images with their real content type, but HTML and JavaScript as `text/plain` with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: … sandbox`, so a proxy is required. They send `Access-Control-Allow-Origin: *`.
-- Raw URLs need the owner in the path and accept a commit SHA: `gist.githubusercontent.com/<owner>/<id>/raw/<commit-sha>/<file>` works; the owner-less form returns 404.
-- `gist.github.com/<id>` redirects to `gist.github.com/<owner>/<id>`, and `gist.github.com/<id>.git/info/refs?service=git-upload-pack` advertises the current commit with `Cache-Control: no-cache`. Both work anonymously, for unlisted Gists too, and neither counts against the REST rate limit.
-- Binary files can be pushed to a Gist over Git and are served back byte-identical. A token passed as an HTTP `Authorization: Basic` header (`x-access-token:<token>`) authenticates Git over HTTPS to `gist.github.com`.
-- A REST `PATCH` that re-sends identical content still creates a new revision.
-- Unauthenticated conditional REST requests return `304` but still consume rate-limit quota.
-
-**Vercel and Next.js**
-
-- Host-based rewriting in the Next.js request proxy works, and CDN caching applies to the rewritten file route: repeated requests return `x-vercel-cache: HIT` for both current and pinned URLs.
-- `dangerouslyDeleteByTag` from `@vercel/functions` purges tagged responses from inside a function; after the publishing tool's notification an update was visible on the next request.
-- Wildcard domains are available on all plans with the nameserver or `_acme-challenge` requirement; the 4.5 MB function response limit does not apply to streamed responses; the CDN caches responses up to 10 MB; the cache key includes the host.
-- A response-level `Content-Security-Policy: sandbox` gives a top-level artifact page an opaque origin while its relative `fetch`, image and module-script requests still succeed (path mode).
-
-**Agents**
-
-- The same skill directory installs and runs through the Claude Code marketplace, the Codex marketplace and `npx skills`. Claude Code (plugin) and Codex (skill installed by `npx skills`) each published an artifact unaided from a one-line request.
-
-Still open:
-
-- **Subdomain mode in production.** It is verified locally with `<gist-id>.localhost` only; the deployed prototype has no wildcard domain yet.
-- **Rate limit for framed-view metadata.** Whether OAuth app credentials sent as basic authentication still raise the anonymous REST limit, and how the framed view behaves on Vercel's shared addresses without them.
-- **Sign-in scope.** The OAuth `gist` scope includes write access. Whether a narrower grant can list a person's secret Gists, for example a GitHub App with a read-only Gists permission.
-- **Large accounts and large files.** Dashboard listing beyond 1,000 Gists (it currently stops there and says so), the 300-file cap per Gist, and CDN behaviour for streamed files between 4.5 MB and 10 MB.
-- **Abuse.** Rate limiting of the viewer itself, and whether artifact subdomains should be registered on the Public Suffix List.
-
-## 10. References
-
-- GitHub REST Gists: https://docs.github.com/en/rest/gists/gists
-- GitHub REST Gist comments: https://docs.github.com/en/rest/gists/comments
-- Gist API file truncation: https://github.com/github/docs/blob/main/content/rest/gists/gists.md
-- Vercel wildcard domains: https://vercel.com/docs/domains/working-with-domains/add-a-domain
-- Vercel multi-tenant limits: https://vercel.com/docs/platforms/multi-tenant-platforms/limits
-- Vercel Functions limits: https://vercel.com/docs/functions/limitations
-- Vercel CDN cache: https://vercel.com/docs/caching/cdn-cache
-- Vercel cache purging and tags: https://vercel.com/docs/caching/cdn-cache/purge
-- GistPreview: https://github.com/gistpreview/gistpreview.github.io
-- Simon Willison, Gist Host: https://simonwillison.net/2026/Jan/1/gisthost/
-- Open Artifacts: https://open-artifacts.com/docs/mcp-tools/
-- Artifact Server: https://github.com/plannotator/artifact-server
-- AgentUse Artifacts: https://github.com/agentuse/artifacts
+- **RFC 7763**: Leonard, S., "The text/markdown Media Type", March 2016. <https://www.rfc-editor.org/rfc/rfc7763>
+- GitHub Docs, "REST API endpoints for gists". <https://docs.github.com/en/rest/gists/gists>
+- GitHub Docs, "Creating gists". <https://docs.github.com/en/get-started/writing-on-github/editing-and-sharing-content-with-gists/creating-gists>
+- W3C, "Subresource Integrity". <https://www.w3.org/TR/SRI/>

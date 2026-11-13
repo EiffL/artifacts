@@ -112,7 +112,7 @@ describe("manifest", () => {
   test("reads a conforming manifest without problems", () => {
     const { manifest, problems } = parseManifest(
       JSON.stringify({
-        schemaVersion: "0.2",
+        schemaVersion: "0.1",
         title: "Report",
         entrypoint: "index.html",
         mediaType: "text/html",
