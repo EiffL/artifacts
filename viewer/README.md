@@ -37,7 +37,7 @@ See [`.env.example`](.env.example). Summary:
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | Sign-in, and a higher API rate limit for framed-view metadata. |
 | `GITHUB_TOKEN` | Optional alternative for public API reads. |
 | `ARTIFACTS_ROOT_DOMAIN` | Subdomain mode. |
-| `NEXT_PUBLIC_REPO_SLUG`, `NEXT_PUBLIC_DEMO_GIST_ID` | Links on the landing page. |
+| `NEXT_PUBLIC_REPO_SLUG` | The repository that the landing page, its star button and the sidebar link to. |
 
 The OAuth app's callback URL is `<viewer origin>/api/auth/callback`.
 

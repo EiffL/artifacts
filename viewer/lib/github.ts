@@ -130,6 +130,18 @@ export async function getGist(
   return json<GistDetail>(res);
 }
 
+/** Stars on a public repository, or null when GitHub does not answer. */
+export async function getRepoStars(slug: string): Promise<number | null> {
+  try {
+    const res = await githubFetch(`/repos/${slug}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { stargazers_count?: unknown };
+    return typeof data.stargazers_count === "number" ? data.stargazers_count : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getUser(token: string): Promise<GitHubUser> {
   return json<GitHubUser>(await githubFetch("/user", { token }));
 }
