@@ -25,7 +25,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.1.1";
+export const VERSION = "0.1.2";
 export const SCHEMA_VERSION = "0.1";
 export const MANIFEST = "artifact.json";
 export const DEFAULT_VIEWER = "https://gist-artifacts.dev";
@@ -66,9 +66,11 @@ Manifest options (publish, update):
   --generator <name>      Tool or agent that produced the artifact.
   --source <url>          Code, commit or dataset the artifact was produced from.
 
+publish, update:
+  --dry-run               Validate and print what would be published, without writing anything.
+
 publish:
   --public                Create a public Gist. Default: secret (unlisted).
-  --dry-run               Validate and print the manifest without publishing.
 
 update:
   --remove <name>         Remove a file from the artifact. Repeatable.
@@ -749,6 +751,21 @@ async function update(positional, flags) {
   }
   warnLargeFiles(files);
 
+  if (flags["dry-run"]) {
+    printResult(
+      flags,
+      { dryRun: true, gistId: id, revision: head, manifest, files: [...files.keys()], remove },
+      [
+        `Dry run: nothing was published to "${manifest.title}".`,
+        files.size > 0 && `  Would write:   ${[...files.keys()].join(", ")}`,
+        remove.length > 0 && `  Would remove:  ${remove.join(", ")}`,
+        "  Manifest:",
+        manifestText.trimEnd().replace(/^/gm, "    "),
+      ],
+    );
+    return;
+  }
+
   const needsGit = baseRevision !== null || [...files.values()].some((file) => file.text === null);
   // The Gist description mirrors the title; only rewrite it when the manifest is being changed.
   const titleChanged = (manifestTouched || !gist.description) && manifest.title !== gist.description;
@@ -939,6 +956,8 @@ async function url(positional, flags) {
 }
 
 const COMMANDS = { publish, update, open, list, comments, reply, url };
+/** Commands that write and know how to stop short of it. */
+const DRY_RUN_COMMANDS = new Set(["publish", "update"]);
 
 export async function main(argv) {
   const { flags, positional } = parseArgs(argv);
@@ -953,6 +972,10 @@ export async function main(argv) {
   }
   const run = COMMANDS[command];
   if (!run) throw new CliError(`Unknown command "${command}". Run with --help for usage.`, EXIT.USAGE);
+  // An ignored --dry-run would do the real thing, so refuse it where it has no meaning.
+  if (flags["dry-run"] && !DRY_RUN_COMMANDS.has(command)) {
+    throw new CliError(`--dry-run is not available for "${command}": only for publish and update.`, EXIT.USAGE);
+  }
   await run(rest, flags);
 }
 

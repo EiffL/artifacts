@@ -249,6 +249,14 @@ describe("command line", () => {
     assert.ok(output.files.includes(MANIFEST));
   });
 
+  test("refuses --dry-run on a command that would ignore it", () => {
+    for (const args of [["reply", ID, "--body", "hello"], ["comments", ID], ["list"]]) {
+      const result = run([...args, "--dry-run"], { GIST_ARTIFACTS_TOKEN: "", GH_TOKEN: "", GITHUB_TOKEN: "" });
+      assert.equal(result.status, EXIT.USAGE, args.join(" "));
+      assert.match(result.stderr, /--dry-run is not available/);
+    }
+  });
+
   test("url prints viewer links and honours the viewer setting", () => {
     assert.equal(run(["url", ID], { GIST_ARTIFACTS_VIEWER: "https://v.example/" }).stdout.trim(), `https://v.example/g/${ID}`);
     assert.equal(
