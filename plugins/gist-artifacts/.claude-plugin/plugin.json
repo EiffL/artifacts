@@ -3,7 +3,7 @@
   "description": "Publish, update and share pages as Gist Artifacts: versioned GitHub Gists with a shareable viewer link.",
   "author": { "name": "EiffL", "url": "https://github.com/EiffL" },
   "homepage": "https://gist-artifacts.dev",
-  "repository": "https://github.com/Eiffl/artifacts",
+  "repository": "https://github.com/EiffL/gist-artifacts",
   "license": "MIT",
   "keywords": ["artifacts", "gist", "github", "publishing", "sharing"]
 }

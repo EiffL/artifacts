@@ -6,5 +6,5 @@
   "description": "The logo, colours, type and usage rules for Gist Artifacts",
   "icon": "palette",
   "generator": "brand/tools/build_site.py",
-  "source": "https://github.com/EiffL/artifacts/tree/main/brand"
+  "source": "https://github.com/EiffL/gist-artifacts/tree/main/brand"
 }

@@ -2,8 +2,8 @@
 
 **Spec Version:** 0.1  
 **Status:** Draft  
-**Latest version:** <https://github.com/EiffL/artifacts/blob/main/gist-artifacts-spec.md>  
-**Feedback:** <https://github.com/EiffL/artifacts/issues>
+**Latest version:** <https://github.com/EiffL/gist-artifacts/blob/main/gist-artifacts-spec.md>  
+**Feedback:** <https://github.com/EiffL/gist-artifacts/issues>
 
 A **Gist Artifact** is a GitHub Gist that carries a small manifest describing its content: what it is called, which file to open, and what kind of file that is. The convention turns an ordinary Gist into a self-describing, versioned unit of content (a report, a visualization, an interactive page, a document) that can be opened, updated, forked and cited.
 
@@ -439,7 +439,7 @@ Versions of this specification are numbered `MAJOR.MINOR`.
 
 A JSON Schema for the manifest of each version is published in this repository under `schemas/<version>/artifact.schema.json`. For this version:
 
-<https://raw.githubusercontent.com/EiffL/artifacts/main/schemas/0.1/artifact.schema.json>
+<https://raw.githubusercontent.com/EiffL/gist-artifacts/main/schemas/0.1/artifact.schema.json>
 
 A manifest MAY refer to it through the `$schema` property. The schema is an aid to authoring and validation. If the schema and this document disagree, this document is authoritative.
 
@@ -478,7 +478,7 @@ figure1.png
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/EiffL/artifacts/main/schemas/0.1/artifact.schema.json",
+  "$schema": "https://raw.githubusercontent.com/EiffL/gist-artifacts/main/schemas/0.1/artifact.schema.json",
   "schemaVersion": "0.1",
   "title": "Cosmology Explorer",
   "entrypoint": "index.html",

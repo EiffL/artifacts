@@ -27,7 +27,7 @@ sys.path.insert(0, str(TOOLS))
 import build_logo as B  # noqa: E402
 from kit import TEXT_PAIRS, pair_ratio  # noqa: E402
 
-REPO_URL = "https://github.com/EiffL/artifacts"
+REPO_URL = "https://github.com/EiffL/gist-artifacts"
 KIT_URL = f"{REPO_URL}/tree/main/brand"
 PDF_URL = f"{REPO_URL}/blob/main/brand/branding.pdf"
 VERSION = "Version 1.0 · November 2026"

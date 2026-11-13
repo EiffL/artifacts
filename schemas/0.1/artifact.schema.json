@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/EiffL/artifacts/main/schemas/0.1/artifact.schema.json",
+  "$id": "https://raw.githubusercontent.com/EiffL/gist-artifacts/main/schemas/0.1/artifact.schema.json",
   "title": "Gist Artifact manifest",
   "description": "The artifact.json file of a Gist Artifact, version 0.1. The specification text is authoritative where it and this schema disagree.",
   "type": "object",

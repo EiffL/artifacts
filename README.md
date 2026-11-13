@@ -39,21 +39,21 @@ gh auth login -s gist
 Claude Code:
 
 ```text
-/plugin marketplace add EiffL/artifacts
+/plugin marketplace add EiffL/gist-artifacts
 /plugin install gist-artifacts@gist-artifacts
 ```
 
 Codex:
 
 ```bash
-codex plugin marketplace add EiffL/artifacts
+codex plugin marketplace add EiffL/gist-artifacts
 codex plugin add gist-artifacts@gist-artifacts
 ```
 
 Any other agent, through the [`skills`](https://skills.sh) CLI:
 
 ```bash
-npx skills add EiffL/artifacts
+npx skills add EiffL/gist-artifacts
 ```
 
 **3. Ask for an artifact.**
@@ -157,7 +157,7 @@ A working prototype. The format is a draft at version 0.1 and may still change.
 
 ## Contributing and license
 
-Development notes are in [CONTRIBUTING.md](CONTRIBUTING.md). Feedback on the format is welcome in the [issue tracker](https://github.com/EiffL/artifacts/issues).
+Development notes are in [CONTRIBUTING.md](CONTRIBUTING.md). Feedback on the format is welcome in the [issue tracker](https://github.com/EiffL/gist-artifacts/issues).
 
 The logo, colours and usage rules are in [`brand`](brand), with a [brand guide](brand/branding.pdf).
 
