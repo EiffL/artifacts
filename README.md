@@ -82,7 +82,8 @@ Every artifact opens at [gist-artifacts.dev](https://gist-artifacts.dev) with:
 
 - the page itself, or its own full-page link;
 - a revision picker, to step back through earlier versions;
-- the file list, the history, and the comment thread;
+- the comment thread, which opens beside the page;
+- the file list and the history;
 - a copy-link button for the latest version or a pinned one.
 
 Sign in with GitHub to get a dashboard of your artifacts and the ones you starred, and to comment, star, fork, rename or delete from the viewer.

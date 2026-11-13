@@ -4,7 +4,8 @@ import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { connection } from "next/server"
 
-import { FrameHeader, type FrameUrls } from "@/components/frame/frame-header"
+import type { FrameUrls } from "@/components/frame/frame-header"
+import { FrameShell } from "@/components/frame/frame-shell"
 import { Skeleton } from "@/components/ui/skeleton"
 import { loadArtifactView } from "@/lib/artifacts"
 import { isGistId, isSha, rootDomain } from "@/lib/config"
@@ -104,14 +105,7 @@ async function Frame({ params, searchParams }: Props) {
   }
 
   return (
-    <div className="flex h-dvh flex-col">
-      <FrameHeader
-        view={view}
-        viewer={viewer}
-        urls={urls}
-        pinned={rev !== null}
-        initiallyStarred={starred}
-      />
+    <FrameShell view={view} viewer={viewer} urls={urls} pinned={rev !== null} initiallyStarred={starred}>
       <iframe
         key={urls.bare}
         src={urls.bare}
@@ -120,8 +114,8 @@ async function Frame({ params, searchParams }: Props) {
         sandbox={isolated ? `${SANDBOX} allow-same-origin` : SANDBOX}
         allow="fullscreen; clipboard-write"
         referrerPolicy="no-referrer"
-        className="min-h-0 w-full flex-1 border-0 bg-white"
+        className="h-full min-w-0 flex-1 border-0 bg-white"
       />
-    </div>
+    </FrameShell>
   )
 }
