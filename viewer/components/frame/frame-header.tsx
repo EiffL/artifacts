@@ -9,6 +9,7 @@ import {
   GlobeIcon,
   InfoIcon,
   LockIcon,
+  MessageSquareIcon,
   PencilIcon,
   StarIcon,
   Trash2Icon,
@@ -23,7 +24,6 @@ import {
   type DialogTarget,
 } from "@/components/artifact-dialogs"
 import { CopyButton } from "@/components/copy-button"
-import { Comments } from "@/components/frame/comments"
 import { LogoMark } from "@/components/logo"
 import { RelativeTime } from "@/components/relative-time"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -89,7 +89,7 @@ function RevisionSelect({ view, pinned }: { view: ArtifactView; pinned: boolean 
         router.push(value === LATEST ? `/g/${view.id}` : `/g/${view.id}?rev=${value}`)
       }}
     >
-      <SelectTrigger size="sm" className="max-w-40 sm:max-w-64" aria-label="Revision">
+      <SelectTrigger size="sm" className="max-w-28 sm:max-w-64" aria-label="Revision">
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">
@@ -122,25 +122,34 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
   )
 }
 
+/** Id of the comments panel, which the header's button opens and closes. */
+export const COMMENTS_PANEL_ID = "artifact-comments"
+
 export function FrameHeader({
   view,
   viewer,
   urls,
   pinned,
   initiallyStarred,
+  commentCount,
+  commentsOpen,
+  onToggleComments,
 }: {
   view: ArtifactView
   viewer: Viewer | null
   urls: FrameUrls
   pinned: boolean
   initiallyStarred: boolean
+  /** Null when GitHub did not say how many there are. */
+  commentCount: number | null
+  commentsOpen: boolean
+  onToggleComments: () => void
 }) {
   const router = useRouter()
   const [starred, setStarred] = React.useState(initiallyStarred)
   const [pending, startTransition] = React.useTransition()
   const [editing, setEditing] = React.useState<DialogTarget | null>(null)
   const [deleting, setDeleting] = React.useState<DialogTarget | null>(null)
-  const [commentsOpened, setCommentsOpened] = React.useState(false)
 
   const isOwner = viewer !== null && viewer.login.toLowerCase() === view.owner.toLowerCase()
   const canWrite = viewer?.canWrite ?? false
@@ -202,12 +211,49 @@ export function FrameHeader({
       </div>
 
       <RevisionSelect view={view} pinned={pinned} />
+      {/* From tablet width up; on a phone the star is in the details panel, where there is room. */}
+      {canWrite ? (
+        <Button
+          variant="outline"
+          size="icon-sm"
+          className="hidden sm:inline-flex"
+          aria-label={starred ? "Remove your star" : "Star this artifact"}
+          aria-pressed={starred}
+          title={starred ? "Starred" : "Star"}
+          onClick={toggleStar}
+          disabled={pending}
+        >
+          <StarIcon className={starred ? "fill-current" : undefined} />
+        </Button>
+      ) : urls.signIn ? (
+        <a
+          href={urls.signIn}
+          aria-label="Sign in to star this artifact"
+          title="Sign in to star"
+          className={cn(buttonVariants({ variant: "outline", size: "icon-sm" }), "hidden sm:inline-flex")}
+        >
+          <StarIcon />
+        </a>
+      ) : null}
+      <Button
+        variant="outline"
+        size="sm"
+        title="Comments"
+        aria-label={commentCount ? `Comments (${commentCount})` : "Comments"}
+        aria-expanded={commentsOpen}
+        aria-controls={COMMENTS_PANEL_ID}
+        onClick={onToggleComments}
+      >
+        <MessageSquareIcon />
+        {commentCount ? <span className="tabular-nums">{commentCount}</span> : null}
+      </Button>
       <CopyButton value={urls.share} />
       <a
         href={urls.bare}
         target="_blank"
         rel="noreferrer"
         aria-label="Open the artifact on its own page"
+        title="Open on its own page"
         className={buttonVariants({ variant: "outline", size: "icon-sm" })}
       >
         <ExternalLinkIcon />
@@ -223,20 +269,11 @@ export function FrameHeader({
             <SheetDescription>{view.description ?? "No description."}</SheetDescription>
           </SheetHeader>
 
-          <Tabs
-            defaultValue="details"
-            className="min-h-0 flex-1 gap-0"
-            onValueChange={(value) => {
-              if (value === "comments") setCommentsOpened(true)
-            }}
-          >
+          <Tabs defaultValue="details" className="min-h-0 flex-1 gap-0">
             <TabsList className="mx-4 self-start">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
-              <TabsTrigger value="comments">
-                Comments{view.commentCount ? ` (${view.commentCount})` : ""}
-              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="overflow-y-auto p-4">
@@ -252,7 +289,8 @@ export function FrameHeader({
                 </a>
                 {canWrite ? (
                   <>
-                    <Button variant="outline" size="sm" onClick={toggleStar} disabled={pending}>
+                    {/* The header has this button from tablet width up. */}
+                    <Button variant="outline" size="sm" className="sm:hidden" onClick={toggleStar} disabled={pending}>
                       <StarIcon data-icon="inline-start" className={starred ? "fill-current" : undefined} />
                       {starred ? "Starred" : "Star"}
                     </Button>
@@ -411,12 +449,6 @@ export function FrameHeader({
                   })}
                 </ol>
               )}
-            </TabsContent>
-
-            <TabsContent value="comments" className="overflow-y-auto p-4">
-              {commentsOpened ? (
-                <Comments gistId={view.id} gistUrl={urls.gist} canComment={canWrite} signInUrl={urls.signIn} />
-              ) : null}
             </TabsContent>
           </Tabs>
         </SheetContent>

@@ -23,11 +23,14 @@ export function Comments({
   gistUrl,
   canComment,
   signInUrl,
+  onCount,
 }: {
   gistId: string
   gistUrl: string
   canComment: boolean
   signInUrl: string | null
+  /** Called with the number of comments once they are loaded, and again after posting one. */
+  onCount?: (count: number) => void
 }) {
   const [state, setState] = React.useState<State>({ status: "loading" })
   const [draft, setDraft] = React.useState("")
@@ -41,10 +44,13 @@ export function Comments({
       setState(
         result.ok ? { status: "ready", comments: result.data } : { status: "error", message: result.error }
       )
+      if (result.ok) onCount?.(result.data.length)
     })
     return () => {
       cancelled = true
     }
+    // The thread is loaded once per Gist; the callback is only told about it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gistId])
 
   function submit(event: React.FormEvent) {
@@ -57,11 +63,9 @@ export function Comments({
       }
       setError(null)
       setDraft("")
-      setState((current) =>
-        current.status === "ready"
-          ? { status: "ready", comments: [...current.comments, result.data] }
-          : { status: "ready", comments: [result.data] }
-      )
+      const comments = state.status === "ready" ? [...state.comments, result.data] : [result.data]
+      setState({ status: "ready", comments })
+      onCount?.(comments.length)
     })
   }
 

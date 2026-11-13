@@ -23,7 +23,7 @@ In subdomain mode the request proxy rewrites every path on an artifact host to t
 
 **Caching.** Pinned URLs (`/@<sha>/…`) are immutable. Current URLs are cached at the CDN for 30 seconds and tagged `gist-<id>`; the current revision is remembered for 30 seconds in the Runtime Cache. `POST /api/revalidate?gist=<id>` re-reads the revision and drops the tagged responses, at most once per revision.
 
-**Framed view** (`app/g/[id]/page.tsx`). Title, revision picker, files, history and comments around a sandboxed iframe. Metadata comes from one REST call per revision, cached; if the API is unavailable the artifact still displays, without history.
+**Framed view** (`app/g/[id]/page.tsx`, `components/frame`). A header around a sandboxed iframe: title, revision picker, a star, comments, copy link, and a details panel with files and history. The comments button opens the Gist's thread beside the artifact, without reloading it. Metadata comes from one REST call per revision, cached; if the API is unavailable the artifact still displays, without history.
 
 **Onboarding an agent** (`components/onboard-agent-button.tsx`, `app/get-started.md/route.ts`, `lib/onboarding.ts`). The "Onboard your agent" button, on the dashboard and under "Other agents" on the landing page, copies a prompt that tells an agent to fetch `/get-started.md`. That is a Markdown page with the install commands: the plugin for Claude Code and for Codex, and the skills CLI for any other agent. It asks for the install and nothing else, and says so.
 
