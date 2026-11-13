@@ -5,6 +5,7 @@ import { formatBytes, formatRelative, shortSha } from "./format";
 import { parseHeadFromRefs, rawFileUrl } from "./gist-source";
 import { parseManifest } from "./manifest";
 import { bareMediaType, contentTypeFor } from "./mime";
+import { getStartedMarkdown, onboardingPrompt } from "./onboarding";
 import { errorPage, escapeHtml, imagePage, markdownPage, textPage } from "./render";
 import { appOrigin, artifactUrl, framedUrl, requestOrigin } from "./urls";
 
@@ -195,5 +196,28 @@ describe("format", () => {
     expect(formatRelative("2026-11-13T11:59:50Z", now)).toBe("just now");
     expect(formatRelative("2026-11-13T09:00:00Z", now)).toBe("3 hours ago");
     expect(formatRelative("2026-11-12T12:00:00Z", now)).toBe("yesterday");
+  });
+});
+
+describe("onboarding", () => {
+  const origin = "https://viewer.example";
+
+  test("the prompt points an agent at this viewer's setup page", () => {
+    expect(onboardingPrompt(origin)).toBe(
+      "Set up Gist Artifacts for me. Fetch https://viewer.example/get-started.md and follow it.",
+    );
+  });
+
+  test("the setup page gives each agent its install commands and asks for nothing else", () => {
+    const page = getStartedMarkdown(origin);
+    expect(page).toContain("claude plugin marketplace add EiffL/gist-artifacts");
+    expect(page).toContain("claude plugin install gist-artifacts@gist-artifacts");
+    expect(page).toContain("codex plugin add gist-artifacts@gist-artifacts");
+    expect(page).toContain("npx skills add EiffL/gist-artifacts --skill gist-artifacts --yes");
+    expect(page).toContain("anyone can open at https://viewer.example");
+    expect(page).toContain("It does not ask for a token");
+    expect(page).toContain("unlisted, not private");
+    // No sign-in command: the skill asks for that itself, and only when it is needed.
+    expect(page).not.toContain("gh auth login");
   });
 });
