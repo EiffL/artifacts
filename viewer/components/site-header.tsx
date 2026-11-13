@@ -12,7 +12,8 @@ export function SiteHeader({ title }: { title: string }) {
         <h1 className="text-base font-medium">{title}</h1>
         <div className="ml-auto flex items-center gap-2">
           <OpenArtifactForm compact className="hidden w-72 lg:flex" />
-          <OnboardAgentButton size="default" />
+          {/* A prompt for a coding agent is no use on a phone, where the header has little room. */}
+          <OnboardAgentButton size="default" className="hidden md:inline-flex" />
         </div>
       </div>
     </header>
