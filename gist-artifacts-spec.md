@@ -1,6 +1,6 @@
 # Gist Artifacts — Minimal Specification (Draft v0.2)
 
-**Status:** Exploratory proposal, 13 November 2026. Not an implemented standard.
+**Status:** Exploratory proposal, 13 November 2026. Not an adopted standard. A working prototype of everything described here (viewer, publishing tool, agent plugin) lives in this repository; §9 lists what it confirmed and what is still open.
 
 **Changes since v0.1:** multi-file artifacts with relative references and binary assets; a concrete viewer design with one origin per artifact, with an open-source reference implementation on Vercel that includes GitHub sign-in and a dashboard; an explicit dependency policy; data files as agent-writable state; comments via Gist comments; conflict detection and listing in the publishing contract; an agent-integration section; security requirements reduced to a single rule.
 
@@ -127,9 +127,18 @@ For each request the service looks up the Gist (at `<sha>` if given), finds the 
 - **Relative references work unmodified**, and under `/@<sha>/` every sub-resource resolves to the same revision, so revisions never mix.
 - **One origin per artifact.** `localStorage` and similar APIs work and cannot collide between artifacts, and artifact scripts never run in an origin that holds viewer or GitHub credentials.
 - **Caching is trivial.** Pinned responses are immutable and can be cached indefinitely; current-revision responses get a short TTL (about a minute), which is also the delay before an update becomes visible.
-- **Size and rate limits are handled server-side.** The service reads raw file URLs, which avoids the API's 1 MiB content truncation, and can authenticate its API calls with one token.
+- **Size and rate limits are handled server-side.** The service reads raw file URLs, which avoids the API's 1 MiB content truncation and, addressed by commit SHA, needs no API quota at all (§4.4).
 
 The link an agent hands to a person is the framed view; the bare subdomain is what the frame embeds and what a person opens for a full-page view.
+
+**Path mode.** A viewer without a wildcard domain can serve the same files from a path on its own origin:
+
+```text
+https://viewer.example/a/<gist-id>/               entrypoint, current revision
+https://viewer.example/a/<gist-id>/@<sha>/<file>  any file, pinned revision
+```
+
+Every such response then carries `Content-Security-Policy: sandbox allow-scripts …` without `allow-same-origin`, which gives the page an opaque origin. Scripts and relative references work, but `localStorage`, cookies and service workers do not, and the page cannot act on the viewer's own origin. This is the degraded mode the storage rule of §5.2 exists for. The reference implementation runs in path mode until a wildcard domain is configured, and redirects path URLs to the subdomain once one is.
 
 A zero-infrastructure fallback is a static single-origin viewer in the style of GistPreview or Gist Host, which fetches the Gist client-side and rewrites relative references to blob URLs. It needs no server, but all artifacts share one origin (authors should then prefix `localStorage` keys) and every visitor spends their own unauthenticated API quota.
 
@@ -146,7 +155,7 @@ A page that must work offline or be archived SHOULD be fully self-contained.
 
 Secret Gists are unlisted, not private: possession of the URL grants access. This is the accepted sharing model. There is no access control, and artifacts should not contain anything that must stay confidential.
 
-The single requirement on viewers is that artifact content MUST NOT execute in an origin that holds credentials (viewer sessions, GitHub tokens). The per-artifact origin of §4.1 satisfies this by construction.
+The single requirement on viewers is that artifact content MUST NOT execute in an origin that holds credentials (viewer sessions, GitHub tokens). The per-artifact origin of §4.1 satisfies this by construction, and so does the opaque origin of path mode.
 
 ### 4.4 Reference implementation on Vercel
 
@@ -159,43 +168,49 @@ The reference viewer is one open-source Vercel project: a Next.js application wh
 1. *Apex host* serves the framed view `/g/<gist-id>`, the dashboard, sign-in, the revalidation endpoint, and a landing page.
 2. *`<gist-id>` subdomain* (32 hexadecimal characters) serves artifact files:
    1. Parse the path into an optional `@<sha>/` prefix and a file name; an empty name means the manifest's `entrypoint`.
-   2. Load the Gist metadata with `GET /gists/{id}` or `GET /gists/{id}/{sha}`, authenticated with one server-side GitHub token held in an environment variable. The response lists every file with a `raw_url` that is pinned to that file's content, and includes the content of files up to 1 MiB inline (base64 for binary files).
-   3. Serve the file: from the inline content when present, otherwise by streaming the `raw_url` body. Streaming matters because non-streamed function responses are capped at 4.5 MB.
-   4. Set `Content-Type` from the file extension, drop GitHub's own `Content-Security-Policy` and `text/plain` typing, and add `Access-Control-Allow-Origin: *`.
+   2. Resolve three facts, none of which uses GitHub's REST API or needs a token:
+      - the Gist's **owner**, from the redirect `gist.github.com/<id>` → `gist.github.com/<owner>/<id>` (cached for weeks; an owner never changes);
+      - the **current revision**, from Git's smart-HTTP ref advertisement at `gist.github.com/<id>.git/info/refs?service=git-upload-pack`, unless the URL pins one (cached for 30 seconds);
+      - the **manifest** at that revision, when the request is for the entrypoint (cached per revision).
+   3. Stream the file from `gist.githubusercontent.com/<owner>/<id>/raw/<commit-sha>/<file>`. Every file is addressed by commit SHA, so all files of one page load come from the same revision and GitHub's own five-minute caching of unpinned raw URLs never applies. Streaming matters because non-streamed function responses are capped at 4.5 MB. `Range` and `If-None-Match` are passed through.
+   4. Set `Content-Type` from the file extension, drop GitHub's own `Content-Security-Policy` and `text/plain` typing, and add `Access-Control-Allow-Origin: *`, `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer` (an unlisted Gist's ID is its only protection, and in subdomain mode the ID is part of the origin).
    5. For a non-HTML `mediaType`, the root URL returns a small wrapper page that renders the entrypoint (Markdown, SVG, text); the file itself stays available at `/<file>`.
+   6. A Gist without `artifact.json` is not a conforming artifact, but an `index.html` in it is still displayed, so plain HTML Gists keep working.
 
 **Caching.** Two layers, both keyed per artifact because the CDN cache key includes the host:
 
 | Request | Browser | Vercel CDN |
 | --- | --- | --- |
 | Pinned (`/@<sha>/…`) | `Cache-Control: public, max-age=31536000, immutable` | Same; never revalidated |
-| Current | `Cache-Control: public, max-age=0, must-revalidate` | `Vercel-CDN-Cache-Control: max-age=60, stale-while-revalidate=600`, tagged `Vercel-Cache-Tag: gist-<gist-id>` |
+| Current | `Cache-Control: public, max-age=0, must-revalidate` | `Vercel-CDN-Cache-Control: max-age=30`, tagged `Vercel-Cache-Tag: gist-<gist-id>` |
 
-Gist metadata is additionally kept in Vercel's Runtime Cache (60 seconds for current, indefinitely for a pinned revision), so the many file requests of one page load cost a single GitHub API call.
+The owner, current revision and manifest are additionally kept in Vercel's Runtime Cache, so the many file requests of one page load resolve them once. There is deliberately no stale-while-revalidate on current responses: a rarely viewed artifact must not show an old revision on the first visit after an update. Without a notification (below), an update becomes visible within about a minute.
 
-**Instant updates.** Gists have no webhooks, so the viewer cannot be told about a change by GitHub. Instead the publishing tool calls `POST https://viewer.example/api/revalidate?gist=<gist-id>` after every `publish` or `update`. The endpoint checks the Gist's current revision against the cached one and, if it changed, invalidates the `gist-<gist-id>` cache tag. It needs no authentication because it can only cause a refresh of content that really changed. Without the call, an update appears within about a minute.
+**Instant updates.** Gists have no webhooks, so the viewer cannot be told about a change by GitHub. Instead the publishing tool calls `POST https://viewer.example/api/revalidate?gist=<gist-id>` after every `publish` or `update`. The endpoint re-reads the Gist's current revision and deletes the CDN entries tagged `gist-<gist-id>`, at most once per revision. It needs no authentication because repeating the call for the same revision does nothing, and creating a new revision requires owning the Gist. Deletion is used instead of invalidation because invalidation serves the stale copy once more.
 
-**Framed view.** `viewer.example/g/<gist-id>` is a server-rendered shell around an iframe of the artifact's subdomain. It shows the title, description, owner and last update from the manifest and Gist metadata; a revision picker built from the Gist's `history`; and links to the source Gist, its comment thread (with count) and the fork action. It also emits Open Graph tags from the manifest so shared links unfurl with a title and description.
+**Framed view.** `viewer.example/g/<gist-id>` is a server-rendered shell around a sandboxed iframe of the artifact. It shows the title and owner, a revision picker built from the Gist's `history`, and a details panel with the file list, history, comment thread and links to the source Gist. It also emits Open Graph tags from the manifest so shared links unfurl with a title and description. This is the one place the REST API is used for anonymous visitors: one `GET /gists/{id}` per revision, cached. If the API is unavailable the artifact still displays, without history and file list.
 
 **Limits that shape the design.**
 
 - The CDN caches function responses up to 10 MB; larger files are served but hit the function every time (hence the guidance in §2.1).
-- CDN and Runtime Cache entries are per region and best-effort, so a rarely viewed artifact costs one GitHub API call per region on its first view. An authenticated token allows 5,000 API calls per hour, which the two cache layers keep far out of reach for ordinary traffic.
+- CDN and Runtime Cache entries are per region and best-effort. Because file serving uses no REST quota, this only costs a few extra requests to GitHub's Git and raw hosts. The framed view's metadata call authenticates with the OAuth app's client ID and secret (or a plain token), which is meant to lift the anonymous limit that shared serverless addresses exhaust quickly.
 - Wildcard domains apply to the production deployment. Local development uses `<gist-id>.localhost`, which browsers resolve without configuration.
 - Vercel's Hobby plan is limited to non-commercial use; an organisation running a shared viewer would use a paid plan.
 
-**Repository layout (indicative).**
+**Repository layout.**
 
 ```text
-proxy.ts                      host routing: <gist-id> subdomain -> /_artifact/<gist-id>/...
-app/_artifact/[id]/[[...path]]/route.ts   file serving, wrapper pages
-app/g/[id]/page.tsx           framed view
-app/(dashboard)/              signed-in dashboard (§4.5)
-app/api/revalidate/route.ts   cache-tag invalidation
-app/api/auth/                 GitHub sign-in
-lib/gist.ts                   GitHub client, metadata cache, revision resolution
-lib/mime.ts                   extension to content-type table
-components/ui/                shadcn/ui components
+viewer/proxy.ts                          host routing: <gist-id> subdomain -> /a/<gist-id>/...
+viewer/app/a/[id]/[[...path]]/route.ts   file serving, wrapper pages (also the path-mode URL)
+viewer/app/g/[id]/page.tsx               framed view
+viewer/app/dashboard/                    signed-in dashboard (§4.5)
+viewer/app/actions.ts                    star, fork, comment, edit, delete
+viewer/app/api/revalidate/route.ts       cache refresh after a publish
+viewer/app/api/auth/                     GitHub sign-in
+viewer/lib/gist-source.ts                owner, revision and raw-file resolution without the REST API
+viewer/lib/github.ts                     REST client for metadata and the dashboard
+viewer/lib/session.ts                    encrypted cookie session
+viewer/components/ui/                    shadcn/ui components
 ```
 
 Nothing in the format depends on Vercel. The same service fits any platform that offers wildcard subdomains, a function runtime, and an HTTP cache.
@@ -204,10 +219,11 @@ Nothing in the format depends on Vercel. The same service fits any platform that
 
 Viewing an artifact never requires an account. Signing in with GitHub adds a personal dashboard for browsing and managing one's own artifacts, the equivalent of a vendor's artifact gallery. It stays within the no-database rule: everything shown is read live from the GitHub API with the signed-in person's own token.
 
-**Authentication.** Standard GitHub OAuth sign-in (for example Auth.js with its GitHub provider and stateless sessions). The GitHub access token is kept only in an encrypted, HTTP-only session cookie; nothing is stored server-side.
+**Authentication.** The standard GitHub OAuth web flow, implemented directly in three small route handlers. The GitHub access token is kept only in an encrypted (JWE), HTTP-only session cookie; nothing is stored server-side.
 
 - The session cookie is host-only on the apex domain and uses the `__Host-` name prefix, so it is never sent to artifact subdomains and artifact scripts cannot overwrite it. This is what keeps §4.3's single rule true once the service holds credentials.
-- Sign-in asks for the `gist` scope, which is needed to list secret Gists and to perform the write actions below. A person who declines it can still sign in with no scope and see their public artifacts only.
+- Sign-in asks for the `gist` scope, which is needed to list secret Gists and to perform the write actions below. A sign-in without any scope is also supported (`/api/auth/login?scope=public`): it lists public artifacts only and turns the write actions off.
+- Write actions are server actions that re-read the session, accept only same-origin POSTs, and call GitHub with the person's own token. GitHub remains the authority on what they may do.
 
 **Dashboard.** Built on the shadcn/ui dashboard block (sidebar, cards, data table), on the apex host:
 
@@ -215,9 +231,9 @@ Viewing an artifact never requires an account. Signing in with GitHub adds a per
 | --- | --- | --- |
 | My artifacts | Table of the person's artifacts: title, description, visibility, last update, file and comment counts; search, sort, filter | `GET /gists`, filtered to Gists containing `artifact.json` |
 | Starred | Artifacts the person starred, as a "saved" or "shared with me" shelf | `GET /gists/starred`, same filter |
-| Artifact detail | The framed view plus file list, revision history with per-revision links, comment thread, and forks | `GET /gists/{id}`, `/commits`, `/comments`, `/forks` |
+| Artifact detail | The framed view and its details panel: file list, revision history with per-revision links, comment thread, fork parent | `GET /gists/{id}`, `/comments` |
 
-The list response includes file names and the Gist description but not file contents, which is why §2 asks for the description to equal the title: the table renders from one paginated call, without fetching each manifest.
+The list response includes file names and the Gist description but not file contents, which is why §2 asks for the description to equal the title: a listing can be rendered from one paginated call. The reference dashboard additionally reads each listed manifest through its content-addressed raw URL (cached indefinitely) to show descriptions and media types, and falls back to the Gist description.
 
 **Actions**, all direct GitHub API calls with the person's token: copy the share link or a pinned-revision link, star or unstar, fork, post a comment from the framed view, edit title and description (rewrites `artifact.json` and the Gist description in one revision), and delete (with confirmation).
 
@@ -246,12 +262,24 @@ These are conceptual operations, not a specified network API.
 
 Implementations can use the GitHub Gist REST API, `gh`, or Git. Git (`https://gist.github.com/<gist-id>.git`) is the most general write path: it handles binary files, makes a multi-file update one commit, and provides conflict detection. Writes require authorization from the Gist owner.
 
+The reference tool creates a Gist through the REST API (the only way to create one), updates text files with a single REST `PATCH`, and switches to a Git clone-commit-push whenever a binary file or a `baseRevision` is involved. It compares content before writing, because GitHub records a new revision even when a file is re-sent unchanged.
+
 ### 5.1 Agent integration
 
-No dedicated server is needed where the agent has a shell. The suggested packaging is a **skill plus one helper script**:
+No dedicated server is needed where the agent has a shell. The packaging is a **skill plus one helper script**:
 
-- The skill carries this contract and the authoring guidance of §5.2.
-- The script implements the six operations over `gh`/`git`, validates the manifest (entrypoint exists, media type matches), and prints the viewer URL and pinned revision.
+- The skill (`SKILL.md`, the cross-agent Agent Skills format) carries this contract and the authoring guidance of §5.2.
+- The script, a single dependency-free Node.js file shipped inside the skill, implements the six operations, validates the manifest (entrypoint exists, media type known), and prints the viewer URL and pinned revision. It takes the GitHub token from the environment or from `gh auth token`.
+
+One directory in this repository, `plugins/gist-artifacts`, is distributed three ways without duplication:
+
+| Channel | Manifest in this repository | Install |
+| --- | --- | --- |
+| Claude Code plugin marketplace | `.claude-plugin/marketplace.json`, `plugins/gist-artifacts/.claude-plugin/plugin.json` | `/plugin marketplace add <owner>/<repo>` then `/plugin install gist-artifacts@gist-artifacts` |
+| Codex plugin marketplace | `.agents/plugins/marketplace.json`, `plugins/gist-artifacts/.codex-plugin/plugin.json` | `codex plugin marketplace add <owner>/<repo>` then `codex plugin add gist-artifacts@gist-artifacts` |
+| Skill only, any agent | none needed (the `skills` CLI reads the Claude marketplace file) | `npx skills add <owner>/<repo>` |
+
+The skill refers to its script by a path relative to its own directory, because each agent installs skills in a different place and only some substitute path variables.
 
 An **MCP server** exposing the same six operations is only needed for agents without shell access (chat surfaces, hosted agents). It would be a remote server using GitHub OAuth with the `gist` scope; it adds reach, not capability.
 
@@ -320,29 +348,39 @@ Related agent artifact products:
 | Page calling a model or connected data sources | Yes | No (bring your own backend) |
 | Ready-made types (slides, documents, dashboards) | Yes | No (templates are a candidate extension) |
 
-## 9. Engineering constraints to validate in a prototype
+## 9. What the prototype confirmed, and what is still open
 
-Checked on 13 November 2026 against live public Gists and the current Vercel documentation:
+Confirmed on 13 November 2026 against live Gists, the deployed prototype and the current Vercel documentation:
+
+**GitHub**
 
 - Gist IDs are 32 hexadecimal characters, so they are valid DNS labels.
-- `GET /gists/{id}` returns, per file, a content type, size, a `truncated` flag, inline content (base64 for binary files such as PNG), and a `raw_url` containing a per-file content hash. It also returns the revision `history` and the comment count.
-- `GET /gists/{id}/{sha}` returns the file set of that revision in the same shape.
-- Raw Gist URLs serve images with their real content type, but HTML and JavaScript as `text/plain` with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: … sandbox`. They send `Access-Control-Allow-Origin: *`. Raw responses carry `max-age=300` and API responses `max-age=60`.
-- Binary files do exist in Gists in practice (the sampled Gist held PNG files).
-- The Gist's current revision can be read without the REST API via `git ls-remote https://gist.github.com/<id>.git`.
-- Vercel: wildcard domains on all plans with the nameserver or `_acme-challenge` requirement; 4.5 MB function response limit that does not apply to streamed responses; 10 MB maximum cacheable response; host included in the CDN cache key; tag-based invalidation through `Vercel-Cache-Tag`, available on all plans.
+- `GET /gists/{id}` returns, per file, a content type, size, a `truncated` flag, inline content (base64 for binary files), and a `raw_url` containing a per-file content hash. It also returns the revision `history` and the comment count. `GET /gists/{id}/{sha}` returns the file set of that revision in the same shape.
+- Raw Gist URLs serve images with their real content type, but HTML and JavaScript as `text/plain` with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: … sandbox`, so a proxy is required. They send `Access-Control-Allow-Origin: *`.
+- Raw URLs need the owner in the path and accept a commit SHA: `gist.githubusercontent.com/<owner>/<id>/raw/<commit-sha>/<file>` works; the owner-less form returns 404.
+- `gist.github.com/<id>` redirects to `gist.github.com/<owner>/<id>`, and `gist.github.com/<id>.git/info/refs?service=git-upload-pack` advertises the current commit with `Cache-Control: no-cache`. Both work anonymously, for unlisted Gists too, and neither counts against the REST rate limit.
+- Binary files can be pushed to a Gist over Git and are served back byte-identical. A token passed as an HTTP `Authorization: Basic` header (`x-access-token:<token>`) authenticates Git over HTTPS to `gist.github.com`.
+- A REST `PATCH` that re-sends identical content still creates a new revision.
+- Unauthenticated conditional REST requests return `304` but still consume rate-limit quota.
 
-Still to validate:
+**Vercel and Next.js**
 
-- Unauthenticated conditional requests (`If-None-Match`) returned `304` but still consumed rate-limit quota in testing; confirm whether authenticated ones are free, which would make revalidation nearly costless.
-- The exact host-based rewrite in the Next.js request proxy (file name and API differ between Next.js versions), that CDN caching still applies to the rewritten route, and the runtime call used to invalidate a cache tag from inside a function.
-- GitHub sign-in scopes: whether a narrower grant than the OAuth `gist` scope (which includes write access) can list a person's secret Gists, for example a GitHub App with a read-only Gists permission.
-- That a signed-in person's `GET /gists` listing is complete enough for the dashboard (pagination, the 300-file cap per Gist) and how it performs for accounts with thousands of Gists.
-- Behaviour of streamed responses with the CDN cache for files between 4.5 MB and 10 MB.
-- Pushing binary files over Git to a Gist end to end, and practical size limits (files over 10 MiB reportedly require a clone to read).
-- Whether inline API content is reliable enough to serve directly, or whether the viewer should always read `raw_url`.
-- The real delay between an update and the current-revision URL reflecting it, with and without the revalidation call.
-- `gh` token scopes and the exact `gh`/`git` invocations for each operation in §5 across platforms.
+- Host-based rewriting in the Next.js request proxy works, and CDN caching applies to the rewritten file route: repeated requests return `x-vercel-cache: HIT` for both current and pinned URLs.
+- `dangerouslyDeleteByTag` from `@vercel/functions` purges tagged responses from inside a function; after the publishing tool's notification an update was visible on the next request.
+- Wildcard domains are available on all plans with the nameserver or `_acme-challenge` requirement; the 4.5 MB function response limit does not apply to streamed responses; the CDN caches responses up to 10 MB; the cache key includes the host.
+- A response-level `Content-Security-Policy: sandbox` gives a top-level artifact page an opaque origin while its relative `fetch`, image and module-script requests still succeed (path mode).
+
+**Agents**
+
+- The same skill directory installs and runs through the Claude Code marketplace, the Codex marketplace and `npx skills`. Claude Code (plugin) and Codex (skill installed by `npx skills`) each published an artifact unaided from a one-line request.
+
+Still open:
+
+- **Subdomain mode in production.** It is verified locally with `<gist-id>.localhost` only; the deployed prototype has no wildcard domain yet.
+- **Rate limit for framed-view metadata.** Whether OAuth app credentials sent as basic authentication still raise the anonymous REST limit, and how the framed view behaves on Vercel's shared addresses without them.
+- **Sign-in scope.** The OAuth `gist` scope includes write access. Whether a narrower grant can list a person's secret Gists, for example a GitHub App with a read-only Gists permission.
+- **Large accounts and large files.** Dashboard listing beyond 1,000 Gists (it currently stops there and says so), the 300-file cap per Gist, and CDN behaviour for streamed files between 4.5 MB and 10 MB.
+- **Abuse.** Rate limiting of the viewer itself, and whether artifact subdomains should be registered on the Public Suffix List.
 
 ## 10. References
 
