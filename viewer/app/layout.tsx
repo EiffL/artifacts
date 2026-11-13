@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
@@ -42,6 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster />
         </ThemeProvider>
+        {/* Counts views of the application's own pages. Artifact content is served by a route
+            handler outside this layout, so it is never instrumented. */}
+        <Analytics />
       </body>
     </html>
   );
