@@ -19,9 +19,24 @@ All operations go through one script that ships with this skill, at `scripts/gis
 node <skill-dir>/scripts/gist-artifacts.mjs <command> [options]
 ```
 
-It needs Node.js 18+ and a GitHub token with the `gist` scope. It finds the token in `GIST_ARTIFACTS_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, or from `gh auth token`. If it exits with code 4, ask the user to run `gh auth login -s gist` (or `gh auth refresh -s gist` if they are already signed in), then retry. Never ask the user to paste a token into the conversation.
+It needs Node.js 18+. Add `--json` to any command for machine-readable output. Run with `--help` for every option.
 
-Add `--json` to any command for machine-readable output. Run with `--help` for every option.
+## Signing in to GitHub
+
+The tool uses the user's own GitHub sign-in: the GitHub CLI's (`gh auth token`), or a token in `GIST_ARTIFACTS_TOKEN`, `GH_TOKEN` or `GITHUB_TOKEN`. Do not check for it beforehand and do not ask the user to set anything up first. Run the command you need: a normal `gh` sign-in already has the permission.
+
+If a command exits with code 4, the sign-in is missing or lacks the `gist` permission, and the error message names the one command that fixes it:
+
+- `gh auth login -s gist` when the user is not signed in;
+- `gh auth refresh -s gist` when they are signed in without the `gist` permission.
+
+Then:
+
+1. Tell the user in one sentence why it is needed: publishing writes a Gist to their GitHub account.
+2. Ask them to run that command themselves, in their own terminal. It is interactive and opens a browser, so do not run it for them. If the message says the GitHub CLI is not installed, point them to <https://cli.github.com> first.
+3. When they say it is done, run your command again.
+
+Never ask the user to paste a token into the conversation.
 
 ## Publish a new artifact
 

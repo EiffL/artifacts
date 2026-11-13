@@ -1,6 +1,6 @@
 # Publishing without the helper script
 
-Use this only when Node.js is unavailable. It needs the GitHub CLI (`gh`) signed in with the `gist` scope, and `git` for binary files. Replace `VIEWER` with the viewer base URL (default `https://gist-artifacts.dev`).
+Use this only when Node.js is unavailable. It needs the GitHub CLI (`gh`) signed in with the `gist` scope, and `git` for binary files. Do not ask the user to sign in beforehand: if `gh` reports that it is not logged in, ask them to run `gh auth login -s gist` in their own terminal, and if creating or editing a Gist fails with HTTP 404 or 403, ask them to run `gh auth refresh -s gist`. Then retry. Replace `VIEWER` with the viewer base URL (default `https://gist-artifacts.dev`).
 
 ## Publish
 

@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, test } from "node:test";
@@ -17,6 +17,7 @@ import {
   collectFiles,
   decodeText,
   inferMediaType,
+  lacksGistScope,
   parseArgs,
   parseGistRef,
   serializeManifest,
@@ -275,5 +276,54 @@ describe("command line", () => {
     });
     assert.equal(result.status, EXIT.AUTH);
     assert.match(result.stderr, /gh auth login -s gist/);
+    assert.match(result.stderr, /not installed.*cli\.github\.com/);
+  });
+
+  test("names the sign-in command when gh is installed but signed out", () => {
+    const bin = dir("signed-out-gh", { gh: "#!/bin/sh\nexit 1\n" });
+    chmodSync(join(bin, "gh"), 0o755);
+    const result = run(["list"], {
+      PATH: `${bin}:${dirname(process.execPath)}`,
+      GIST_ARTIFACTS_TOKEN: "",
+      GH_TOKEN: "",
+      GITHUB_TOKEN: "",
+    });
+    assert.equal(result.status, EXIT.AUTH);
+    assert.match(result.stderr, /^error: Not signed in to GitHub\. Run `gh auth login -s gist`/);
+  });
+
+  test("exits with code 4 and names the fix when the sign-in lacks the gist permission", () => {
+    // GitHub answers a write from such a sign-in with 404 and the scopes the token does have.
+    const preload = join(dir("no-gist-scope", {
+      "fetch.mjs":
+        'globalThis.fetch = async () => new Response(JSON.stringify({ message: "Not Found" }), ' +
+        '{ status: 404, headers: { "content-type": "application/json", "x-oauth-scopes": "repo, read:org" } });\n',
+    }), "fetch.mjs");
+    const page = dir("no-gist-scope-page", { "index.html": "<p>hi</p>" });
+    const bin = dir("signed-in-gh", { gh: "#!/bin/sh\necho not-a-real-token\n" });
+    chmodSync(join(bin, "gh"), 0o755);
+    const publish = (env) =>
+      spawnSync(process.execPath, ["--import", preload, SCRIPT, "publish", page, "--title", "T"], {
+        encoding: "utf8",
+        env: { ...process.env, GIST_ARTIFACTS_TOKEN: "", GH_TOKEN: "", GITHUB_TOKEN: "", ...env },
+      });
+
+    const throughGh = publish({ PATH: `${bin}:${dirname(process.execPath)}` });
+    assert.equal(throughGh.status, EXIT.AUTH, throughGh.stderr);
+    assert.match(throughGh.stderr, /does not have the gist permission\. Run `gh auth refresh -s gist`\./);
+
+    const throughEnv = publish({ GH_TOKEN: "not-a-real-token" });
+    assert.equal(throughEnv.status, EXIT.AUTH, throughEnv.stderr);
+    assert.match(throughEnv.stderr, /The token in GH_TOKEN needs the gist scope/);
+  });
+
+  test("reads the gist permission from the scopes GitHub reports", () => {
+    assert.equal(lacksGistScope("repo, read:org"), true);
+    assert.equal(lacksGistScope(""), true);
+    assert.equal(lacksGistScope("gist, read:org, repo, workflow"), false);
+    assert.equal(lacksGistScope("repo,gist"), false);
+    // Tokens that do not report scopes: nothing can be concluded.
+    assert.equal(lacksGistScope(null), false);
+    assert.equal(lacksGistScope(undefined), false);
   });
 });

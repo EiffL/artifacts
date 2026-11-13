@@ -25,7 +25,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.1.2";
+export const VERSION = "0.1.3";
 export const SCHEMA_VERSION = "0.1";
 export const MANIFEST = "artifact.json";
 export const DEFAULT_VIEWER = "https://gist-artifacts.dev";
@@ -377,28 +377,57 @@ function textFile(text) {
 // ---------------------------------------------------------------------------
 
 let cachedToken;
+/** Where the token came from: the name of an environment variable, or "gh". */
+let tokenSource = null;
+let ghInstalled = true;
 
 /** @returns {string | null} */
 function findToken() {
   if (cachedToken !== undefined) return cachedToken;
   for (const name of ["GIST_ARTIFACTS_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"]) {
     const value = process.env[name]?.trim();
-    if (value) return (cachedToken = value);
+    if (value) {
+      tokenSource = name;
+      return (cachedToken = value);
+    }
   }
   const gh = spawnSync("gh", ["auth", "token"], { encoding: "utf8" });
+  ghInstalled = gh.error?.code !== "ENOENT";
   const value = gh.status === 0 ? gh.stdout.trim() : "";
+  if (value) tokenSource = "gh";
   return (cachedToken = value || null);
 }
+
+const TOKEN_ALTERNATIVE = "or set GH_TOKEN to a token with the gist scope";
 
 function requireToken() {
   const token = findToken();
   if (!token) {
     throw new CliError(
-      "No GitHub token found. Run `gh auth login -s gist`, or set GH_TOKEN to a token with the gist scope.",
+      ghInstalled
+        ? `Not signed in to GitHub. Run \`gh auth login -s gist\`, ${TOKEN_ALTERNATIVE}.`
+        : `Not signed in to GitHub, and the GitHub CLI (gh) is not installed. Install it from https://cli.github.com and run \`gh auth login -s gist\`, ${TOKEN_ALTERNATIVE}.`,
       EXIT.AUTH,
     );
   }
   return token;
+}
+
+/**
+ * Whether a sign-in lacks the gist permission, from GitHub's `x-oauth-scopes` response header.
+ * The header lists the scopes of an OAuth or classic token; other kinds of token do not send
+ * it, and then nothing can be concluded.
+ */
+export function lacksGistScope(scopesHeader) {
+  if (scopesHeader === null || scopesHeader === undefined) return false;
+  return !scopesHeader.split(",").some((scope) => scope.trim() === "gist");
+}
+
+/** The one command, or change, that gives the current sign-in the gist permission. */
+function gistScopeFix() {
+  return tokenSource === "gh" || tokenSource === null
+    ? "Run `gh auth refresh -s gist`."
+    : `The token in ${tokenSource} needs the gist scope: use one that has it, or unset ${tokenSource} and run \`gh auth login -s gist\`.`;
 }
 
 /**
@@ -437,10 +466,13 @@ async function github(path, { method = "GET", body, auth = "required" } = {}) {
 
   const detail = data?.message ? ` (${data.message})` : "";
   if (res.status === 401) {
-    throw new CliError(`GitHub rejected the token${detail}. Run \`gh auth login -s gist\`.`, EXIT.AUTH);
+    throw new CliError(`GitHub rejected the sign-in${detail}. Run \`gh auth login -s gist\`.`, EXIT.AUTH);
   }
   if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0") {
     throw new CliError("GitHub rate limit reached. Try again later, or authenticate with `gh auth login`.");
+  }
+  if ((res.status === 404 || res.status === 403) && token && lacksGistScope(res.headers.get("x-oauth-scopes"))) {
+    throw new CliError(`The GitHub sign-in does not have the gist permission. ${gistScopeFix()}`, EXIT.AUTH);
   }
   if (res.status === 404 || res.status === 403) {
     const hint =
