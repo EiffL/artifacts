@@ -28,13 +28,7 @@ Gist Artifacts puts the page somewhere you already have:
 
 ## Get started
 
-**1. Sign in to GitHub** with the [GitHub CLI](https://cli.github.com), granting the `gist` permission:
-
-```bash
-gh auth login -s gist
-```
-
-**2. Install the skill** in your agent.
+**1. Install the skill** in your agent.
 
 Claude Code:
 
@@ -56,11 +50,13 @@ Any other agent, through the [`skills`](https://skills.sh) CLI:
 npx skills add EiffL/gist-artifacts
 ```
 
-**3. Ask for an artifact.**
+**2. Ask for an artifact.**
 
 > Publish this report as a Gist artifact and give me the link.
 
 The agent writes the page, publishes it, and hands you a link like `https://gist-artifacts.dev/g/<gist-id>`.
+
+Publishing uses your sign-in from the [GitHub CLI](https://cli.github.com). If you are not signed in, or the sign-in lacks the `gist` permission, the agent tells you the one command to run: `gh auth login -s gist`, or `gh auth refresh -s gist`.
 
 ## What you can ask for
 

@@ -197,10 +197,7 @@ export default function Home() {
             className="mx-auto mt-12 max-w-2xl scroll-mt-8 rounded-2xl border bg-card p-5 text-left shadow-xl shadow-black/5 sm:p-8"
           >
             <ol className="flex flex-col gap-8">
-              <Step number={1} title="Sign in to GitHub, granting the gist permission">
-                <Command label="signing in to GitHub" lines={["gh auth login -s gist"]} />
-              </Step>
-              <Step number={2} title="Install the skill in your agent">
+              <Step number={1} title="Install the skill in your agent">
                 <Tabs defaultValue={INSTALL[0].id}>
                   <TabsList>
                     {INSTALL.map((option) => (
@@ -218,7 +215,7 @@ export default function Home() {
                   ))}
                 </Tabs>
               </Step>
-              <Step number={3} title="Ask for an artifact">
+              <Step number={2} title="Ask for an artifact">
                 <p className="rounded-lg border px-3.5 py-3 text-pretty">
                   Publish this report as a Gist artifact and give me the link.
                 </p>
@@ -229,7 +226,11 @@ export default function Home() {
             </ol>
           </div>
           <p className="mx-auto mt-6 max-w-xl text-sm text-pretty text-muted-foreground">
-            The skill uses the GitHub CLI, and Node.js 18 or later when it is there. Already have a Gist?{" "}
+            Publishing uses your sign-in from the{" "}
+            <a href="https://cli.github.com" className="underline underline-offset-4 hover:text-foreground">
+              GitHub CLI
+            </a>
+            . If it is missing, your agent gives you the one command to run. Already have a Gist?{" "}
             <a href="#open" className="underline underline-offset-4 hover:text-foreground">
               Open it in the viewer
             </a>
