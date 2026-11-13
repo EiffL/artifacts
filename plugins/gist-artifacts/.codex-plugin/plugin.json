@@ -1,0 +1,21 @@
+{
+  "name": "gist-artifacts",
+  "version": "0.2.0",
+  "description": "Publish, update and share pages as Gist Artifacts: versioned GitHub Gists with a shareable viewer link.",
+  "author": { "name": "EiffL", "url": "https://github.com/EiffL" },
+  "homepage": "https://gist-artifacts.vercel.app",
+  "repository": "https://github.com/Eiffl/artifacts",
+  "keywords": ["artifacts", "gist", "github", "publishing", "sharing"],
+  "skills": "./skills/",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Gist Artifacts",
+    "shortDescription": "Publish pages as versioned GitHub Gists with a shareable link",
+    "longDescription": "Turn the reports, visualizations and interactive pages you build into Gist Artifacts. Each artifact is a GitHub Gist you own, with a small manifest; every update is a Git revision, and a viewer link makes it easy to share, pin, fork and comment on.",
+    "developerName": "EiffL",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Write"],
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/logo.png"
+  }
+}

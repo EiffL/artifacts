@@ -1,0 +1,15 @@
+{
+  "name": "gist-artifacts",
+  "owner": { "name": "EiffL", "url": "https://github.com/EiffL" },
+  "metadata": {
+    "description": "Gist Artifacts: an open format for agent-published pages stored as GitHub Gists."
+  },
+  "plugins": [
+    {
+      "name": "gist-artifacts",
+      "source": "./plugins/gist-artifacts",
+      "description": "Publish, update and share pages as Gist Artifacts: versioned GitHub Gists with a shareable viewer link.",
+      "category": "productivity"
+    }
+  ]
+}

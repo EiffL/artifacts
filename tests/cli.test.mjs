@@ -1,0 +1,258 @@
+// Tests for the publishing tool. Run with: node --test tests/
+// Nothing here touches the network or GitHub.
+
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { after, describe, test } from "node:test";
+import { fileURLToPath } from "node:url";
+
+import {
+  CliError,
+  EXIT,
+  MANIFEST,
+  buildManifest,
+  collectFiles,
+  decodeText,
+  inferMediaType,
+  parseArgs,
+  parseGistRef,
+  serializeManifest,
+  viewerUrls,
+} from "../plugins/gist-artifacts/skills/gist-artifacts/scripts/gist-artifacts.mjs";
+
+const SCRIPT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../plugins/gist-artifacts/skills/gist-artifacts/scripts/gist-artifacts.mjs",
+);
+const ID = "b9c4c481ad2dfa225f167fd845f5e7be";
+const SHA = "9eabcbcf5f74453ba542b42f8291766f2d4683ac";
+
+const scratch = mkdtempSync(join(tmpdir(), "gist-artifacts-test-"));
+after(() => rmSync(scratch, { recursive: true, force: true }));
+
+function dir(name, files) {
+  const path = join(scratch, name);
+  mkdirSync(path, { recursive: true });
+  for (const [file, content] of Object.entries(files)) writeFileSync(join(path, file), content);
+  return path;
+}
+
+function run(args, env = {}) {
+  return spawnSync(process.execPath, [SCRIPT, ...args], {
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+    input: "",
+  });
+}
+
+function usageError(fn, pattern) {
+  assert.throws(fn, (error) => {
+    assert.ok(error instanceof CliError);
+    assert.equal(error.code, EXIT.USAGE);
+    if (pattern) assert.match(error.message, pattern);
+    return true;
+  });
+}
+
+describe("parseArgs", () => {
+  test("separates options from positional arguments", () => {
+    const { flags, positional } = parseArgs(["publish", "out", "--title", "Hello", "--public", "--json"]);
+    assert.deepEqual(positional, ["publish", "out"]);
+    assert.deepEqual(flags, { title: "Hello", public: true, json: true });
+  });
+
+  test("accepts --name=value and repeated list options", () => {
+    const { flags } = parseArgs(["--title=A = B", "--remove", "a.txt", "--remove=b.txt"]);
+    assert.equal(flags.title, "A = B");
+    assert.deepEqual(flags.remove, ["a.txt", "b.txt"]);
+  });
+
+  test("keeps a lone dash and everything after -- positional", () => {
+    assert.deepEqual(parseArgs(["reply", "x", "--body", "-"]).flags.body, "-");
+    assert.deepEqual(parseArgs(["a", "--", "--title"]).positional, ["a", "--title"]);
+  });
+
+  test("rejects unknown options and missing values", () => {
+    usageError(() => parseArgs(["--nope"]), /Unknown option/);
+    usageError(() => parseArgs(["--title"]), /needs a value/);
+  });
+});
+
+describe("parseGistRef", () => {
+  test("accepts an ID, a Gist URL and viewer URLs", () => {
+    assert.equal(parseGistRef(ID), ID);
+    assert.equal(parseGistRef(ID.toUpperCase()), ID);
+    assert.equal(parseGistRef(`https://gist.github.com/EiffL/${ID}`), ID);
+    assert.equal(parseGistRef(`https://viewer.example/g/${ID}?rev=${SHA}`), ID);
+    assert.equal(parseGistRef(`https://${ID}.viewer.example/@${SHA}/`), ID);
+  });
+
+  test("rejects text without an ID", () => {
+    usageError(() => parseGistRef("not a gist"));
+    usageError(() => parseGistRef(""));
+  });
+});
+
+describe("buildManifest", () => {
+  test("defaults the entrypoint to index.html and infers the media type", () => {
+    const manifest = buildManifest(null, { title: "Report" }, ["data.json", "index.html"]);
+    assert.deepEqual(manifest, {
+      schemaVersion: "0.2",
+      title: "Report",
+      entrypoint: "index.html",
+      mediaType: "text/html",
+    });
+  });
+
+  test("uses the only file as entrypoint", () => {
+    const manifest = buildManifest(null, { title: "Notes" }, ["notes.md"]);
+    assert.equal(manifest.entrypoint, "notes.md");
+    assert.equal(manifest.mediaType, "text/markdown");
+  });
+
+  test("requires a title and a resolvable entrypoint", () => {
+    usageError(() => buildManifest(null, {}, ["index.html"]), /title/);
+    usageError(() => buildManifest(null, { title: "x" }, ["a.css", "b.js"]), /--entrypoint/);
+    usageError(() => buildManifest(null, { title: "x", entrypoint: "gone.html" }, ["index.html"]), /not among/);
+    usageError(() => buildManifest(null, { title: "x", entrypoint: "a/b.html" }, ["a/b.html"]), /file name/);
+  });
+
+  test("asks for a media type it cannot infer", () => {
+    usageError(() => buildManifest(null, { title: "x" }, ["model.bin"]), /--media-type/);
+    const manifest = buildManifest(null, { title: "x", "media-type": "application/octet-stream" }, ["model.bin"]);
+    assert.equal(manifest.mediaType, "application/octet-stream");
+  });
+
+  test("merges options over an existing manifest and keeps unknown properties", () => {
+    const existing = {
+      custom: { keep: true },
+      mediaType: "text/html",
+      entrypoint: "index.html",
+      title: "Old",
+      schemaVersion: "0.1",
+      description: "Old description",
+    };
+    const manifest = buildManifest(existing, { title: "New", description: "" }, ["index.html"]);
+    assert.equal(manifest.title, "New");
+    assert.equal(manifest.schemaVersion, "0.1");
+    assert.equal("description" in manifest, false);
+    assert.deepEqual(manifest.custom, { keep: true });
+    assert.deepEqual(Object.keys(manifest), ["schemaVersion", "title", "entrypoint", "mediaType", "custom"]);
+  });
+
+  test("re-infers the media type when the entrypoint changes", () => {
+    const existing = { schemaVersion: "0.2", title: "T", entrypoint: "index.html", mediaType: "text/html" };
+    const manifest = buildManifest(existing, { entrypoint: "report.md" }, ["index.html", "report.md"]);
+    assert.equal(manifest.mediaType, "text/markdown");
+  });
+
+  test("rejects a manifest that is not an object and serializes with a trailing newline", () => {
+    assert.throws(() => buildManifest([], { title: "x" }, ["index.html"]), CliError);
+    assert.ok(serializeManifest({ a: 1 }).endsWith("}\n"));
+  });
+});
+
+describe("files", () => {
+  test("tells text from binary", () => {
+    assert.equal(decodeText(Buffer.from("héllo ✓")), "héllo ✓");
+    assert.equal(decodeText(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00])), null);
+    assert.equal(decodeText(Buffer.from([0xff, 0xfe, 0xfd])), null);
+  });
+
+  test("infers media types from extensions", () => {
+    assert.equal(inferMediaType("index.HTML"), "text/html");
+    assert.equal(inferMediaType("plot.svg"), "image/svg+xml");
+    assert.equal(inferMediaType("README"), undefined);
+  });
+
+  test("collects a directory's files, skipping dotfiles", () => {
+    const path = dir("flat", { "index.html": "<p>hi</p>", "data.json": "{}", ".DS_Store": "x" });
+    const files = collectFiles([path]);
+    assert.deepEqual([...files.keys()].sort(), ["data.json", "index.html"]);
+    assert.equal(files.get("index.html").text, "<p>hi</p>");
+  });
+
+  test("rejects sub-directories, duplicate names, empty and reserved files", () => {
+    const nested = dir("nested", { "index.html": "x" });
+    mkdirSync(join(nested, "assets"));
+    assert.throws(() => collectFiles([nested]), /sub-directories \(assets\)/);
+
+    const a = dir("a", { "index.html": "a" });
+    const b = dir("b", { "index.html": "b" });
+    assert.throws(() => collectFiles([join(a, "index.html"), join(b, "index.html")]), /Two files are named/);
+
+    const empty = dir("empty", { "blank.txt": "" });
+    assert.throws(() => collectFiles([empty]), /empty/);
+
+    const reserved = dir("reserved", { "gistfile1.txt": "x" });
+    assert.throws(() => collectFiles([reserved]), /automatic Gist file names/);
+
+    assert.throws(() => collectFiles([join(scratch, "missing")]), /No such file/);
+  });
+});
+
+test("viewerUrls builds the framed and pinned links", () => {
+  assert.deepEqual(viewerUrls("https://viewer.example", ID, SHA), {
+    viewerUrl: `https://viewer.example/g/${ID}`,
+    pinnedUrl: `https://viewer.example/g/${ID}?rev=${SHA}`,
+  });
+  assert.equal(viewerUrls("https://viewer.example", ID, null).pinnedUrl, null);
+});
+
+describe("command line", () => {
+  test("prints version and help", () => {
+    assert.match(run(["--version"]).stdout, /^\d+\.\d+\.\d+\n$/);
+    const help = run(["--help"]);
+    assert.equal(help.status, 0);
+    assert.match(help.stdout, /publish <file-or-dir>/);
+    assert.equal(run([]).status, 0);
+  });
+
+  test("reports usage errors with exit code 2", () => {
+    const unknown = run(["frobnicate"]);
+    assert.equal(unknown.status, EXIT.USAGE);
+    assert.match(unknown.stderr, /^error: Unknown command/);
+    assert.equal(run(["update"]).status, EXIT.USAGE);
+    assert.equal(run(["url", "nope"]).status, EXIT.USAGE);
+    assert.equal(run(["url", ID, "--rev", "abc"]).status, EXIT.USAGE);
+  });
+
+  test("dry-run publish validates and prints the manifest without a token", () => {
+    const path = dir("dry", { "index.html": "<p>hi</p>", "pixel.bin": Buffer.from([0, 1, 2]) });
+    const result = run(["publish", path, "--title", "Dry", "--generator", "tests", "--dry-run", "--json"], {
+      GIST_ARTIFACTS_TOKEN: "",
+      GH_TOKEN: "",
+      GITHUB_TOKEN: "",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.dryRun, true);
+    assert.equal(output.manifest.entrypoint, "index.html");
+    assert.equal(output.manifest.generator, "tests");
+    assert.deepEqual(output.binaryFiles, ["pixel.bin"]);
+    assert.ok(output.files.includes(MANIFEST));
+  });
+
+  test("url prints viewer links and honours the viewer setting", () => {
+    assert.equal(run(["url", ID], { GIST_ARTIFACTS_VIEWER: "https://v.example/" }).stdout.trim(), `https://v.example/g/${ID}`);
+    assert.equal(
+      run(["url", ID, "--rev", SHA, "--viewer", "https://w.example"]).stdout.trim(),
+      `https://w.example/g/${ID}?rev=${SHA}`,
+    );
+  });
+
+  test("exits with code 4 when no GitHub token can be found", () => {
+    const emptyPath = dir("no-tools", {});
+    const result = run(["list"], {
+      PATH: emptyPath,
+      GIST_ARTIFACTS_TOKEN: "",
+      GH_TOKEN: "",
+      GITHUB_TOKEN: "",
+    });
+    assert.equal(result.status, EXIT.AUTH);
+    assert.match(result.stderr, /gh auth login -s gist/);
+  });
+});

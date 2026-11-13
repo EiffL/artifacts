@@ -1,0 +1,8 @@
+{
+  "name": "gist-artifacts",
+  "description": "Publish, update and share pages as Gist Artifacts: versioned GitHub Gists with a shareable viewer link.",
+  "author": { "name": "EiffL", "url": "https://github.com/EiffL" },
+  "homepage": "https://gist-artifacts.vercel.app",
+  "repository": "https://github.com/Eiffl/artifacts",
+  "keywords": ["artifacts", "gist", "github", "publishing", "sharing"]
+}

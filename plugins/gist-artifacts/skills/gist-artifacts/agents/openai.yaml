@@ -1,0 +1,6 @@
+interface:
+  display_name: "Gist Artifacts"
+  short_description: "Publish pages as versioned GitHub Gists with a shareable link"
+  default_prompt: "Publish this page as a Gist artifact and give me the link."
+policy:
+  allow_implicit_invocation: true

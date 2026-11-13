@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hello, Gist Artifacts</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --surface: #fcfcfb;
+    --raised: #ffffff;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --border: #e4e3df;
+    --grid: #ebeae6;
+    --series: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #1a1a19;
+      --raised: #222220;
+      --text: #f0efec;
+      --text-2: #c3c2b7;
+      --border: #383835;
+      --grid: #2c2c2a;
+      --series: #3987e5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  header { display: flex; align-items: center; gap: 0.9rem; }
+  header img { width: 44px; height: 44px; border-radius: 10px; }
+  h1 { font-size: 1.6rem; line-height: 1.2; margin: 0; }
+  h2 { font-size: 1.05rem; margin: 0 0 0.25rem; }
+  p { margin: 0.8rem 0; }
+  .lede { color: var(--text-2); }
+  a { color: inherit; text-underline-offset: 3px; }
+  code { font: 0.875em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .card {
+    background: var(--raised);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem 1.1rem 1rem;
+    margin-top: 1.5rem;
+  }
+  .sub { color: var(--text-2); font-size: 0.875rem; margin: 0; }
+  #chart { position: relative; margin-top: 0.75rem; }
+  #chart svg { display: block; width: 100%; height: auto; outline-offset: 4px; }
+  .axis { fill: var(--text-2); font-size: 11px; }
+  .tip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+    transform: translate(-50%, calc(-100% - 12px));
+  }
+  .tip b { font-variant-numeric: tabular-nums; }
+  details { margin-top: 0.6rem; font-size: 0.875rem; }
+  summary { cursor: pointer; color: var(--text-2); }
+  .scroll { max-height: 14rem; overflow: auto; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 0.3rem 0.75rem; border-bottom: 1px solid var(--border); }
+  th { position: sticky; top: 0; background: var(--raised); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  ul { padding-left: 1.2rem; margin: 0.5rem 0 0; }
+  li { margin: 0.25rem 0; }
+  button {
+    font: inherit;
+    color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.3rem 0.8rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--text-2); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 0.6rem; }
+  .error { color: var(--text-2); font-size: 0.875rem; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="logo.png" alt="">
+    <h1>Hello, Gist Artifacts</h1>
+  </header>
+  <p class="lede">
+    This page is a Gist Artifact: a GitHub Gist holding a small manifest and a few files. An agent
+    published it with one command, every update is a Git revision, and the link you opened always
+    shows the latest one.
+  </p>
+
+  <section class="card" aria-labelledby="chart-title">
+    <h2 id="chart-title">Loading data…</h2>
+    <p class="sub" id="chart-note"></p>
+    <div id="chart"></div>
+    <details>
+      <summary>View as table</summary>
+      <div class="scroll"><table id="table"></table></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>What is in this artifact</h2>
+    <p class="sub">Four files in one Gist, referenced by bare relative name.</p>
+    <ul>
+      <li><a href="artifact.json"><code>artifact.json</code></a>: the manifest (title, entrypoint, media type)</li>
+      <li><code>index.html</code>: this page, self-contained apart from the two files below</li>
+      <li><a href="data.json"><code>data.json</code></a>: the chart's data, which can be updated without touching the page</li>
+      <li><a href="logo.png"><code>logo.png</code></a>: a binary file, pushed to the Gist with Git</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>Per-viewer state</h2>
+    <p class="sub">A counter kept in this browser, to show whether the viewer gives the page its own storage.</p>
+    <div class="row">
+      <button type="button" id="count">Count</button>
+      <span id="count-value" aria-live="polite"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var chart = document.getElementById("chart");
+  var number = new Intl.NumberFormat("en", { maximumFractionDigits: 0 });
+
+  function el(name, attrs, parent) {
+    var node = document.createElementNS(NS, name);
+    for (var key in attrs) node.setAttribute(key, attrs[key]);
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+
+  function niceTicks(max, count) {
+    var raw = max / count;
+    var magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+    var step = [1, 2, 2.5, 5, 10].map(function (m) { return m * magnitude; })
+      .filter(function (s) { return s >= raw; })[0];
+    // The last tick sits at or above the maximum, so the line never leaves the plot.
+    var ticks = [0];
+    while (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step);
+    return ticks;
+  }
+
+  function draw(data) {
+    var points = data.points;
+    var width = Math.max(300, chart.clientWidth);
+    var height = Math.round(Math.min(320, Math.max(220, width * 0.5)));
+    var margin = { top: 12, right: 12, bottom: 36, left: 46 };
+    var innerW = width - margin.left - margin.right;
+    var innerH = height - margin.top - margin.bottom;
+
+    var xMax = points[points.length - 1].ell;
+    var yTicks = niceTicks(Math.max.apply(null, points.map(function (p) { return p.value; })), 4);
+    var yMax = yTicks[yTicks.length - 1];
+    var x = function (v) { return margin.left + (v / xMax) * innerW; };
+    var y = function (v) { return margin.top + innerH - (v / yMax) * innerH; };
+
+    chart.textContent = "";
+    var svg = el("svg", {
+      viewBox: "0 0 " + width + " " + height,
+      role: "img",
+      tabindex: "0",
+      "aria-label": data.title + ": " + data.yLabel + " against " + data.xLabel +
+        ". Use the left and right arrow keys to read values, or open the table below.",
+    }, chart);
+
+    yTicks.forEach(function (tick) {
+      el("line", { x1: margin.left, x2: width - margin.right, y1: y(tick), y2: y(tick), stroke: "var(--grid)", "stroke-width": 1 }, svg);
+      el("text", { x: margin.left - 8, y: y(tick) + 4, "text-anchor": "end", class: "axis" }, svg).textContent = number.format(tick);
+    });
+    var xStep = width < 480 ? 500 : 250;
+    for (var tick = 0; tick <= xMax; tick += xStep) {
+      el("text", { x: x(tick), y: height - margin.bottom + 16, "text-anchor": "middle", class: "axis" }, svg).textContent = tick;
+    }
+    el("text", { x: margin.left + innerW / 2, y: height - 4, "text-anchor": "middle", class: "axis" }, svg).textContent = data.xLabel;
+
+    var path = points.map(function (p, i) { return (i ? "L" : "M") + x(p.ell).toFixed(1) + " " + y(p.value).toFixed(1); }).join(" ");
+    el("path", { d: path, fill: "none", stroke: "var(--series)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+
+    var crosshair = el("line", { y1: margin.top, y2: margin.top + innerH, stroke: "var(--text-2)", "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+    var marker = el("circle", { r: 5, fill: "var(--series)", stroke: "var(--raised)", "stroke-width": 2, visibility: "hidden" }, svg);
+    var tip = document.createElement("div");
+    tip.className = "tip";
+    tip.hidden = true;
+    chart.appendChild(tip);
+
+    var active = -1;
+    function show(index) {
+      active = Math.max(0, Math.min(points.length - 1, index));
+      var p = points[active];
+      var scale = chart.clientWidth / width;
+      crosshair.setAttribute("x1", x(p.ell));
+      crosshair.setAttribute("x2", x(p.ell));
+      marker.setAttribute("cx", x(p.ell));
+      marker.setAttribute("cy", y(p.value));
+      crosshair.setAttribute("visibility", "visible");
+      marker.setAttribute("visibility", "visible");
+      tip.innerHTML = "ℓ = <b>" + p.ell + "</b><br><b>" + number.format(p.value) + "</b> μK²";
+      tip.hidden = false;
+      var left = Math.max(60, Math.min(chart.clientWidth - 60, x(p.ell) * scale));
+      tip.style.left = left + "px";
+      tip.style.top = Math.max(52, y(p.value) * scale) + "px";
+    }
+    function hide() {
+      active = -1;
+      crosshair.setAttribute("visibility", "hidden");
+      marker.setAttribute("visibility", "hidden");
+      tip.hidden = true;
+    }
+    function nearest(clientX) {
+      var box = svg.getBoundingClientRect();
+      var value = ((clientX - box.left) / box.width * width - margin.left) / innerW * xMax;
+      var best = 0;
+      for (var i = 1; i < points.length; i++) {
+        if (Math.abs(points[i].ell - value) < Math.abs(points[best].ell - value)) best = i;
+      }
+      return best;
+    }
+    svg.addEventListener("pointermove", function (event) { show(nearest(event.clientX)); });
+    svg.addEventListener("pointerdown", function (event) { show(nearest(event.clientX)); });
+    svg.addEventListener("pointerleave", hide);
+    svg.addEventListener("blur", hide);
+    svg.addEventListener("keydown", function (event) {
+      if (event.key === "ArrowRight") show(active + 1);
+      else if (event.key === "ArrowLeft") show(active < 0 ? points.length - 1 : active - 1);
+      else if (event.key === "Escape") hide();
+      else return;
+      event.preventDefault();
+    });
+  }
+
+  function table(data) {
+    var rows = data.points.map(function (p) {
+      return "<tr><td>" + p.ell + "</td><td>" + number.format(p.value) + "</td></tr>";
+    }).join("");
+    document.getElementById("table").innerHTML =
+      "<thead><tr><th>" + data.xLabel + "</th><th>" + data.yLabel + "</th></tr></thead><tbody>" + rows + "</tbody>";
+  }
+
+  fetch("./data.json")
+    .then(function (response) {
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return response.json();
+    })
+    .then(function (data) {
+      document.getElementById("chart-title").textContent = data.title;
+      document.getElementById("chart-note").textContent = data.note;
+      table(data);
+      draw(data);
+      var pending;
+      window.addEventListener("resize", function () {
+        clearTimeout(pending);
+        pending = setTimeout(function () { draw(data); }, 120);
+      });
+    })
+    .catch(function (error) {
+      document.getElementById("chart-title").textContent = "The data file could not be loaded";
+      chart.innerHTML = '<p class="error">data.json: ' + String(error.message) + "</p>";
+    });
+
+  // Storage is optional: a sandboxed viewer may refuse it, and the page must still work.
+  var KEY = "hello-gist-artifacts:count";
+  var output = document.getElementById("count-value");
+  function read() {
+    try { return Number(localStorage.getItem(KEY)) || 0; } catch (error) { return null; }
+  }
+  var count = read();
+  var memory = 0;
+  function times(n) { return n + (n === 1 ? " time" : " times"); }
+  function render() {
+    output.textContent = count === null
+      ? "Clicked " + times(memory) + " this visit. This viewer sandboxes the page, so nothing is stored."
+      : "Clicked " + times(count) + " on this device.";
+  }
+  document.getElementById("count").addEventListener("click", function () {
+    if (count === null) { memory += 1; } else {
+      count += 1;
+      try { localStorage.setItem(KEY, String(count)); } catch (error) { count = null; memory = 1; }
+    }
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>
