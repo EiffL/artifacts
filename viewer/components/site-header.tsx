@@ -1,3 +1,4 @@
+import { OnboardAgentButton } from "@/components/onboard-agent-button"
 import { OpenArtifactForm } from "@/components/open-artifact-form"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -9,7 +10,10 @@ export function SiteHeader({ title }: { title: string }) {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mx-2 h-4 data-vertical:self-auto" />
         <h1 className="text-base font-medium">{title}</h1>
-        <OpenArtifactForm compact className="ml-auto hidden w-72 md:flex" />
+        <div className="ml-auto flex items-center gap-2">
+          <OpenArtifactForm compact className="hidden w-72 lg:flex" />
+          <OnboardAgentButton size="default" />
+        </div>
       </div>
     </header>
   )

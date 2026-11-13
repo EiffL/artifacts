@@ -28,7 +28,7 @@ Setting it up is one thing: installing a skill from ${REPO_URL}. This page asks 
 
 ## 1. Install the skill
 
-Run the commands for the agent you are.
+Claude Code and Codex each have a plugin. If you are one of them, install the plugin: it is the supported install, and it updates with the repository. Use the last command only if you are another agent.
 
 Claude Code:
 
@@ -44,7 +44,7 @@ codex plugin marketplace add ${REPO_SLUG}
 codex plugin add gist-artifacts@gist-artifacts
 \`\`\`
 
-Any other agent that supports skills:
+Any other agent that supports skills, through the skills CLI:
 
 \`\`\`bash
 npx skills add ${REPO_SLUG} --skill gist-artifacts --yes

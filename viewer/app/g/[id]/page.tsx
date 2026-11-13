@@ -4,14 +4,12 @@ import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { connection } from "next/server"
 
-import { FrameFooter } from "@/components/frame/frame-footer"
 import { FrameHeader, type FrameUrls } from "@/components/frame/frame-header"
 import { Skeleton } from "@/components/ui/skeleton"
 import { loadArtifactView } from "@/lib/artifacts"
 import { isGistId, isSha, rootDomain } from "@/lib/config"
 import { loadManifest, resolveHead, resolveOwner } from "@/lib/gist-source"
 import { isStarred } from "@/lib/github"
-import { onboardingPrompt } from "@/lib/onboarding"
 import { authConfigured, getSession, toViewer } from "@/lib/session"
 import { SITE_NAME } from "@/lib/site"
 import { appOrigin, artifactUrl, framedUrl, gistUrl } from "@/lib/urls"
@@ -67,7 +65,6 @@ function FrameSkeleton() {
         <Skeleton className="size-7" />
       </div>
       <div className="flex-1 bg-muted/30" />
-      <div className="h-10 shrink-0 border-t" />
     </div>
   )
 }
@@ -125,7 +122,6 @@ async function Frame({ params, searchParams }: Props) {
         referrerPolicy="no-referrer"
         className="min-h-0 w-full flex-1 border-0 bg-white"
       />
-      <FrameFooter prompt={onboardingPrompt(app)} />
     </div>
   )
 }

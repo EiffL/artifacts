@@ -210,6 +210,9 @@ describe("onboarding", () => {
 
   test("the setup page gives each agent its install commands and asks for nothing else", () => {
     const page = getStartedMarkdown(origin);
+    // The plugins come first and are named as the install to prefer.
+    expect(page).toContain("If you are one of them, install the plugin");
+    expect(page.indexOf("claude plugin install")).toBeLessThan(page.indexOf("npx skills add"));
     expect(page).toContain("claude plugin marketplace add EiffL/gist-artifacts");
     expect(page).toContain("claude plugin install gist-artifacts@gist-artifacts");
     expect(page).toContain("codex plugin add gist-artifacts@gist-artifacts");

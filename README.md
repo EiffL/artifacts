@@ -44,7 +44,13 @@ codex plugin marketplace add EiffL/gist-artifacts
 codex plugin add gist-artifacts@gist-artifacts
 ```
 
-Any other agent, through the [`skills`](https://skills.sh) CLI:
+Any other agent: paste this into it.
+
+```text
+Set up Gist Artifacts for me. Fetch https://gist-artifacts.dev/get-started.md and follow it.
+```
+
+Or install the skill yourself with the [`skills`](https://skills.sh) CLI:
 
 ```bash
 npx skills add EiffL/gist-artifacts

@@ -1,8 +1,10 @@
+import Link from "next/link"
 import { headers } from "next/headers"
 import { connection } from "next/server"
 import { LayoutGridIcon, LogInIcon, StarIcon, TriangleAlertIcon } from "lucide-react"
 
 import { ArtifactsTable, type ArtifactRow } from "@/components/artifacts-table"
+import { OnboardAgentButton } from "@/components/onboard-agent-button"
 import { RelativeTime } from "@/components/relative-time"
 import { SectionCards, type Stat } from "@/components/section-cards"
 import { buttonVariants } from "@/components/ui/button"
@@ -35,7 +37,7 @@ function Message({
   action?: React.ReactNode
 }) {
   return (
-    <Empty className="mx-4 my-6 border lg:mx-6">
+    <Empty className="mx-4 my-6 w-auto border lg:mx-6">
       <EmptyHeader>
         <EmptyMedia variant="icon">{icon}</EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>
@@ -160,10 +162,12 @@ export async function ArtifactList({ kind }: { kind: Kind }) {
             title="No artifacts yet"
             description={
               <>
-                None of your {listing.scanned} Gists contains an artifact.json. Install the skill and ask your
-                agent to publish a page as a Gist artifact. See the <a href={REPO_URL}>instructions</a>.
+                None of your {listing.scanned} Gists contains an artifact.json. Onboard your agent, then ask
+                it to publish a page as a Gist artifact. The <Link href="/#install">install steps</Link> are on
+                the home page.
               </>
             }
+            action={<OnboardAgentButton size="default" />}
           />
         ) : (
           <Message
