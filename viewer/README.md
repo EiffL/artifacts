@@ -63,4 +63,9 @@ Do not run `pnpm build` while `pnpm dev` is using the same checkout; clear `.nex
 
 ## Deploying on Vercel
 
-Set the project's Root Directory to `viewer`, add the environment variables above, and deploy. For subdomain mode, add `<domain>` and `*.<domain>` to the project (a wildcard needs Vercel's nameservers or a delegated `_acme-challenge` record) and set `ARTIFACTS_ROOT_DOMAIN=<domain>`.
+1. Import the repository and set the project's **Root Directory** to `viewer`.
+2. Set `SESSION_SECRET` (`openssl rand -hex 32`).
+3. For sign-in, create a [GitHub OAuth app](https://github.com/settings/developers) whose callback URL is `https://<your-domain>/api/auth/callback`, and set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. Without them the viewer still displays artifacts; only the dashboard and the write actions are off.
+4. Optional: for subdomain mode, add `<domain>` and `*.<domain>` to the project (a wildcard needs Vercel's nameservers or a delegated `_acme-challenge` record) and set `ARTIFACTS_ROOT_DOMAIN=<domain>`.
+
+Point the publishing tool at the deployment with `GIST_ARTIFACTS_VIEWER=https://<your-domain>`.

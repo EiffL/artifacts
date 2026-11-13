@@ -1,122 +1,157 @@
 # Gist Artifacts
 
-Shareable pages from your agent, stored as GitHub Gists.
+**Shareable pages from your AI agent, stored in your own GitHub Gists.**
 
-A **Gist Artifact** is a GitHub Gist that holds a small manifest (`artifact.json`) plus content files: an HTML report, an interactive visualization, a Markdown document. An agent publishes it with one command, a viewer renders it at a shareable link, and every update is a Git revision. The Gist is the only storage; the viewer keeps nothing.
+Ask your agent for a report, a chart or an interactive page, and get back a link you can send to anyone. Behind the link is a GitHub Gist that you own. Every update is a new revision, and nobody needs an account to view it.
 
-- **Viewer:** https://gist-artifacts.vercel.app
-- **Example artifact:** https://gist-artifacts.vercel.app/g/fab233b353d106e591ae37fa12326ba3 (source in [`examples/hello`](examples/hello))
-- **Specification:** [`gist-artifacts-spec.md`](gist-artifacts-spec.md)
+[![The example artifact open in the viewer](.github/assets/viewer.png)](https://gist-artifacts.vercel.app/g/fab233b353d106e591ae37fa12326ba3)
 
-This repository contains the specification and a working prototype built on it:
+**[Open the example](https://gist-artifacts.vercel.app/g/fab233b353d106e591ae37fa12326ba3)** · [Viewer](https://gist-artifacts.vercel.app) · [Format specification](gist-artifacts-spec.md)
 
-| Path | What it is |
-| --- | --- |
-| [`gist-artifacts-spec.md`](gist-artifacts-spec.md) | The specification of the artifact convention, with its [JSON Schema](schemas/0.1/artifact.schema.json). |
-| [`plugins/gist-artifacts`](plugins/gist-artifacts) | The agent skill and publishing tool, packaged as a plugin for Claude Code and Codex. |
-| [`viewer`](viewer) | The viewer: a Next.js application deployed on Vercel. |
+## Why
 
-## Install the skill in your agent
+Agents are good at producing pages: analyses, dashboards, explainers. Sharing them is the awkward part. A file on your disk is not a link, and built-in artifact features keep the page inside one product.
 
-The skill needs Node.js 18+ and the [GitHub CLI](https://cli.github.com) signed in with the `gist` scope (`gh auth login -s gist`, or `gh auth refresh -s gist`).
+Gist Artifacts puts the page somewhere you already have:
 
-**Claude Code** (plugin marketplace):
+- **You own it.** The artifact is a Gist in your GitHub account. Clone it, fork it, or delete it.
+- **One link, always current.** Updates go to the same Gist, so the link you shared keeps working.
+- **Every version is kept.** Share the latest version, or a link pinned to one exact revision.
+- **Feedback comes back.** People comment on the Gist. Your agent reads the thread and replies.
+- **Any agent.** Claude Code, Codex, and other agents that support skills.
+- **Open format.** A four-field manifest, specified in this repository and free to implement.
+
+## Get started
+
+**1. Sign in to GitHub** with the [GitHub CLI](https://cli.github.com), granting the `gist` permission:
+
+```bash
+gh auth login -s gist
+```
+
+**2. Install the skill** in your agent.
+
+Claude Code:
 
 ```text
-/plugin marketplace add Eiffl/artifacts
+/plugin marketplace add EiffL/artifacts
 /plugin install gist-artifacts@gist-artifacts
 ```
 
-Or in one step on Claude Code 2.1.275 or later:
-
-```text
-/plugin install gist-artifacts --marketplace Eiffl/artifacts
-```
-
-**Codex** (plugin marketplace):
+Codex:
 
 ```bash
-codex plugin marketplace add Eiffl/artifacts
+codex plugin marketplace add EiffL/artifacts
 codex plugin add gist-artifacts@gist-artifacts
 ```
 
-**Any agent** (skill only, through the [`skills`](https://skills.sh) CLI; it installs for Claude Code, Codex and the other agents it detects):
+Any other agent, through the [`skills`](https://skills.sh) CLI:
 
 ```bash
-npx skills add Eiffl/artifacts
+npx skills add EiffL/artifacts
 ```
 
-**By hand:** copy [`plugins/gist-artifacts/skills/gist-artifacts`](plugins/gist-artifacts/skills/gist-artifacts) into `~/.claude/skills/` (Claude Code) or `~/.agents/skills/` (Codex and others).
+**3. Ask for an artifact.**
 
-Then ask the agent, for example: *"Publish this report as a Gist artifact and give me the link."*
+> Publish this report as a Gist artifact and give me the link.
 
-Codex runs commands in a sandbox without network access by default. Approve the publish command when it asks, or allow network access for the workspace.
+The agent writes the page, publishes it, and hands you a link like `https://gist-artifacts.vercel.app/g/<gist-id>`.
 
-## What the agent runs
+## What you can ask for
 
-The skill drives one dependency-free script, [`gist-artifacts.mjs`](plugins/gist-artifacts/skills/gist-artifacts/scripts/gist-artifacts.mjs). It can also be used directly:
+| You say | What happens |
+| --- | --- |
+| "Publish this page as a Gist artifact." | A new Gist is created and you get its link. |
+| "Update the artifact with the new results." | A new revision of the same Gist. The link does not change. |
+| "Give me a link to exactly this version." | A link pinned to the current revision, which never changes. |
+| "List my artifacts." | Everything you have published, newest first. |
+| "Someone commented on the artifact. Address it." | The agent reads the comments, updates the page, and replies. |
 
-```bash
-alias gist-artifacts='node plugins/gist-artifacts/skills/gist-artifacts/scripts/gist-artifacts.mjs'
-
-gist-artifacts publish ./out --title "Cosmology Explorer" --description "Posterior exploration"
-gist-artifacts update <gist> ./out/data.json          # same link, new revision
-gist-artifacts update <gist> ./out/index.html --base-revision <sha>   # refuses to overwrite a newer revision
-gist-artifacts open <gist> --out ./copy               # read an artifact back
-gist-artifacts list                                   # your artifacts
-gist-artifacts comments <gist>                        # the Gist's comment thread
-gist-artifacts reply <gist> --body "Fixed in the latest revision."
-```
-
-Artifacts are unlisted Gists unless `--public` is passed. **Unlisted is not private:** anyone with the link can view the artifact.
-
-Without Node.js the same workflow works with `gh` alone; see [`manual-workflow.md`](plugins/gist-artifacts/skills/gist-artifacts/references/manual-workflow.md).
+You can publish interactive HTML pages with their data files and images, Markdown documents, SVG and other images, and plain text or JSON.
 
 ## The viewer
 
-| URL | Shows |
-| --- | --- |
-| `/g/<gist-id>` | The artifact in a frame with its title, revision picker, files, history and comments. This is the link to share. |
-| `/g/<gist-id>?rev=<sha>` | The same, pinned to one revision. |
-| `/a/<gist-id>/` | The artifact on its own page. Sibling files resolve relative to it, always within one revision. |
-| `/dashboard` | After signing in with GitHub: your artifacts and your starred ones, read live from your Gists. |
+Every artifact opens at [gist-artifacts.vercel.app](https://gist-artifacts.vercel.app) with:
 
-Viewing never needs an account. The viewer reads artifact files straight from GitHub without using API quota, caches them at the CDN, and refreshes immediately when the publishing tool announces a new revision.
+- the page itself, or its own full-page link;
+- a revision picker, to step back through earlier versions;
+- the file list, the history, and the comment thread;
+- a copy-link button for the latest version or a pinned one.
 
-### Deploy your own viewer
+Sign in with GitHub to get a dashboard of your artifacts and the ones you starred, and to comment, star, fork, rename or delete from the viewer.
 
-The viewer is an ordinary Next.js application in [`viewer`](viewer). On Vercel:
+The viewer stores nothing. It reads each artifact from GitHub when someone opens it.
 
-1. Import this repository and set the project's **Root Directory** to `viewer`.
-2. Set `SESSION_SECRET` (`openssl rand -hex 32`).
-3. For sign-in, create a [GitHub OAuth app](https://github.com/settings/developers) whose callback URL is `https://<your-domain>/api/auth/callback`, and set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. Without them the viewer still displays artifacts; only the dashboard and write actions are off.
-4. Optional: give every artifact its own origin by adding a wildcard domain `*.<your-domain>` to the project and setting `ARTIFACTS_ROOT_DOMAIN=<your-domain>`. Without it, artifacts are served from `/a/<gist-id>/` inside a sandbox, where scripts run but browser storage is unavailable.
+## Good to know
 
-Point the publishing tool at your deployment with `GIST_ARTIFACTS_VIEWER=https://<your-domain>`. All settings are described in [`viewer/.env.example`](viewer/.env.example) and [`viewer/README.md`](viewer/README.md).
+- **Unlisted is not private.** Artifacts are secret Gists by default: not discoverable, but anyone with the link can open them. Do not publish anything confidential.
+- **Pages run in a sandbox.** Scripts work. On the hosted viewer, browser storage such as `localStorage` does not.
+- **Files are flat.** A Gist has no folders, so an artifact is a handful of files side by side, each under 10 MB.
+- **The publishing tool needs Node.js 18 or later.** Without it, the agent falls back to the GitHub CLI alone.
+- **Codex runs commands without network access by default.** Approve the publish command when it asks.
 
-## Development
+## The open format
 
-```bash
-node --test tests/                       # publishing tool (no network)
+Gist Artifacts is a convention, not a service. An artifact is an ordinary GitHub Gist with one extra file, `artifact.json`, that says what the Gist contains:
 
-cd viewer
-pnpm install
-pnpm dev                                 # http://localhost:3000
-pnpm test && pnpm typecheck && pnpm lint
+```json
+{
+  "schemaVersion": "0.1",
+  "title": "Cosmology Explorer",
+  "entrypoint": "index.html",
+  "mediaType": "text/html",
+  "description": "Interactive exploration of a parameter posterior"
+}
 ```
 
-Validate the plugin packaging:
+| Property | Required | Meaning |
+| --- | --- | --- |
+| `schemaVersion` | yes | Version of the format, currently `"0.1"`. |
+| `title` | yes | What the artifact is called. |
+| `entrypoint` | yes | The file to open first. |
+| `mediaType` | yes | What kind of file that is: `text/html`, `text/markdown`, an image, text or JSON. |
+| `description`, `icon`, `generator`, `source` | no | A one-line summary, a pictogram hint, and where the artifact came from. |
 
-```bash
-claude plugin validate .                 # Claude Code marketplace and plugin manifests
-codex plugin marketplace add "$PWD"      # Codex marketplace, from a local checkout
-npx skills add "$PWD" --list             # skill discovery
-```
+A few rules do the rest:
+
+- **Files refer to each other by name.** `index.html` loads `data.json` or `figure1.png` with a plain relative reference, always within one revision.
+- **The Gist is the identity, and its commits are the versions.** The manifest holds no ID, no version number and no URL, so a fork or a clone is still a correct artifact.
+- **GitHub provides everything else:** storage, ownership, history, forks, and the comment thread.
+
+Because the format lives entirely in the Gist, anyone can write an artifact by hand, build a tool that publishes them, or build another way to display them. If this viewer disappeared tomorrow, every artifact would still be a complete Gist in its owner's account.
+
+- [Specification](gist-artifacts-spec.md): the full convention, with examples and a conformance checklist
+- [JSON Schema](schemas/0.1/artifact.schema.json): for validating a manifest
+
+The specification, the schema and all the code here are open source under the MIT license.
+
+## Run your own viewer
+
+The hosted viewer is one deployment of the code in [`viewer`](viewer). You can run your own on Vercel, optionally on your own domain with every artifact isolated on its own subdomain, and point the publishing tool at it with `GIST_ARTIFACTS_VIEWER`. See [`viewer/README.md`](viewer/README.md).
+
+## FAQ
+
+**Do people need an account to view an artifact?**
+No. Anyone with the link can open it. A GitHub account is only needed to comment or to use the dashboard.
+
+**Can I make an artifact private?**
+No. An unlisted Gist is hidden from search and from your profile, but there is no access control. Use something else for confidential material.
+
+**What happens when my agent updates an artifact?**
+It commits to the same Gist. The link shows the new version straight away, and earlier versions stay available through the revision picker or a pinned link.
+
+**Can I publish without an agent?**
+Yes. The publishing tool is a single script you can run yourself, and an artifact can even be made by hand with the GitHub CLI. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**Is the hosted viewer guaranteed to stay up?**
+No. It is a prototype with no service commitment. Your artifacts do not depend on it: they are Gists in your account, and the viewer can be self-hosted.
 
 ## Status
 
-A prototype. The format is a draft (schema version `0.1`) and may change. There is no access control: do not publish anything confidential.
+A working prototype. The format is a draft at version 0.1 and may still change.
 
-## License
+## Contributing and license
 
-[MIT](LICENSE)
+Development notes are in [CONTRIBUTING.md](CONTRIBUTING.md). Feedback on the format is welcome in the [issue tracker](https://github.com/EiffL/artifacts/issues).
+
+Released under the [MIT license](LICENSE).
