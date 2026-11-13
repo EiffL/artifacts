@@ -116,3 +116,7 @@ npx skills add "$PWD" --list             # skill discovery
 ## Status
 
 A prototype. The format is a draft (schema version `0.2`) and may change. There is no access control: do not publish anything confidential.
+
+## License
+
+[MIT](LICENSE)

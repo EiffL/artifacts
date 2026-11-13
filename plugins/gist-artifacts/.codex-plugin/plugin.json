@@ -5,6 +5,7 @@
   "author": { "name": "EiffL", "url": "https://github.com/EiffL" },
   "homepage": "https://gist-artifacts.vercel.app",
   "repository": "https://github.com/Eiffl/artifacts",
+  "license": "MIT",
   "keywords": ["artifacts", "gist", "github", "publishing", "sharing"],
   "skills": "./skills/",
   "requires_local_executor": true,

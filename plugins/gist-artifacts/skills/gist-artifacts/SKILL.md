@@ -1,6 +1,7 @@
 ---
 name: gist-artifacts
 description: Publish, update and share standalone pages (HTML reports, visualizations, dashboards, Markdown documents) as Gist Artifacts, which are versioned GitHub Gists with a small manifest that open through a shareable viewer link. Use when the user asks for a Gist artifact, wants a page or report published to a GitHub Gist, or wants a shareable link to something you built and prefers GitHub Gists or has no built-in artifact publishing. Also use to update, list or read back previously published Gist artifacts, and to read or answer the comments on one.
+license: MIT
 compatibility: Requires Node.js 18+ and a GitHub token with the gist scope (the GitHub CLI `gh` signed in is enough). git is needed only for binary files.
 metadata:
   short-description: Publish pages as versioned GitHub Gists with a shareable viewer link
