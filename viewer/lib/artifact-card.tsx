@@ -79,6 +79,9 @@ export async function artifactCard(rawId: string, host: string): Promise<ImageRe
   const id = rawId.toLowerCase();
   const { title, description, owner } = await cardContent(id);
   const long = title.length > 34;
+  // The tagline shares the last row with the address, and gives way when the address is long.
+  const roomy = host.length <= 24;
+  const address = host.length > 50 ? `${host.slice(0, 49)}…` : host;
 
   return new ImageResponse(
     (
@@ -132,10 +135,13 @@ export async function artifactCard(rawId: string, host: string): Promise<ImageRe
             paddingTop: 30,
           }}
         >
-          <span style={{ fontSize: 26, color: graphite }}>Shareable pages from your AI agent</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {roomy ? (
+            <span style={{ fontSize: 26, color: graphite, flexShrink: 0 }}>Shareable pages from your AI agent</span>
+          ) : null}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
             <span
               style={{
+                flexShrink: 0,
                 fontSize: 26,
                 fontWeight: 600,
                 background: marker,
@@ -146,7 +152,18 @@ export async function artifactCard(rawId: string, host: string): Promise<ImageRe
             >
               Create your own
             </span>
-            <span style={{ fontSize: 24, fontFamily: "Geist Mono" }}>{host}</span>
+            <span
+              style={{
+                display: "block",
+                fontSize: 24,
+                fontFamily: "Geist Mono",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {address}
+            </span>
           </div>
         </div>
       </div>
