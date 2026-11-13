@@ -4,9 +4,9 @@
 
 Ask your agent for a report, a chart or an interactive page, and get back a link you can send to anyone. Behind the link is a GitHub Gist that you own. Every update is a new revision, and nobody needs an account to view it.
 
-[![The example artifact open in the viewer](.github/assets/viewer.png)](https://gist-artifacts.vercel.app/g/fab233b353d106e591ae37fa12326ba3)
+[![The example artifact open in the viewer](.github/assets/viewer.png)](https://gist-artifacts.dev/g/fab233b353d106e591ae37fa12326ba3)
 
-**[Open the example](https://gist-artifacts.vercel.app/g/fab233b353d106e591ae37fa12326ba3)** · [Viewer](https://gist-artifacts.vercel.app) · [Format specification](gist-artifacts-spec.md)
+**[Open the example](https://gist-artifacts.dev/g/fab233b353d106e591ae37fa12326ba3)** · [Viewer](https://gist-artifacts.dev) · [Format specification](gist-artifacts-spec.md)
 
 ## Why
 
@@ -55,7 +55,7 @@ npx skills add EiffL/artifacts
 
 > Publish this report as a Gist artifact and give me the link.
 
-The agent writes the page, publishes it, and hands you a link like `https://gist-artifacts.vercel.app/g/<gist-id>`.
+The agent writes the page, publishes it, and hands you a link like `https://gist-artifacts.dev/g/<gist-id>`.
 
 ## What you can ask for
 
@@ -71,7 +71,7 @@ You can publish interactive HTML pages with their data files and images, Markdow
 
 ## The viewer
 
-Every artifact opens at [gist-artifacts.vercel.app](https://gist-artifacts.vercel.app) with:
+Every artifact opens at [gist-artifacts.dev](https://gist-artifacts.dev) with:
 
 - the page itself, or its own full-page link;
 - a revision picker, to step back through earlier versions;

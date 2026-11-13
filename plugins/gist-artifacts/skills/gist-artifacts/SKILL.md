@@ -81,7 +81,7 @@ Markdown (`--entrypoint report.md`), SVG, plain-text and JSON entrypoints are re
 
 ## Viewer
 
-Links point to the viewer at `https://gist-artifacts.vercel.app` unless `GIST_ARTIFACTS_VIEWER` or `--viewer <url>` names another deployment. The viewer holds no content; it only displays what is in the Gist.
+Links point to the viewer at `https://gist-artifacts.dev` unless `GIST_ARTIFACTS_VIEWER` or `--viewer <url>` names another deployment. The viewer holds no content; it only displays what is in the Gist.
 
 ## Without Node.js
 

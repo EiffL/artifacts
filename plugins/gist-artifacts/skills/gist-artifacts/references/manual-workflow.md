@@ -1,6 +1,6 @@
 # Publishing without the helper script
 
-Use this only when Node.js is unavailable. It needs the GitHub CLI (`gh`) signed in with the `gist` scope, and `git` for binary files. Replace `VIEWER` with the viewer base URL (default `https://gist-artifacts.vercel.app`).
+Use this only when Node.js is unavailable. It needs the GitHub CLI (`gh`) signed in with the `gist` scope, and `git` for binary files. Replace `VIEWER` with the viewer base URL (default `https://gist-artifacts.dev`).
 
 ## Publish
 

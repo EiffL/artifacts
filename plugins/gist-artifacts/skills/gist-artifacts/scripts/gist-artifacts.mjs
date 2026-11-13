@@ -25,10 +25,10 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 export const SCHEMA_VERSION = "0.1";
 export const MANIFEST = "artifact.json";
-export const DEFAULT_VIEWER = "https://gist-artifacts.vercel.app";
+export const DEFAULT_VIEWER = "https://gist-artifacts.dev";
 
 const API = "https://api.github.com";
 const USER_AGENT = `gist-artifacts-cli/${VERSION}`;
