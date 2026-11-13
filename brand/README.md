@@ -124,7 +124,7 @@ just check   # the brand rules
 
 You need [uv](https://docs.astral.sh/uv/) and [just](https://github.com/casey/just); the scripts declare their Python dependencies inline. PNG export needs `rsvg-convert` (librsvg) and `magick` (ImageMagick 7). The PDF needs Chromium; set `CHROMIUM` to its path if it is not on `PATH`.
 
-The build also writes the copies that the rest of the repository uses, listed in `tools/kit.py`: the viewer's icons, social image, `brand.css` and `brand.json`, the plugin's icon and logo, and the example artifact's logo. `just check` fails when any of them is out of date, and when the viewer's logo component no longer draws the compact mark.
+The build also writes the copies that the rest of the repository uses, listed in `tools/kit.py`: the viewer's icons, social image, `brand.css`, `brand.json` and the static fonts for its generated social cards, the plugin's icon and logo, and the example artifact's logo. `just check` fails when any of them is out of date, and when the viewer's logo component no longer draws the compact mark.
 
 ## Licences
 

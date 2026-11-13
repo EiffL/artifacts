@@ -113,6 +113,10 @@ for path, expected in ((kit.VIEWER_CSS, kit.viewer_css()), (kit.VIEWER_JSON, kit
     if not path.exists() or path.read_text() != expected:
         fail(path, "out of date with tokens/colors.json; run tools/build_logo.py")
 
+for name in (*kit.VIEWER_FONTS, *kit.VIEWER_FONT_LICENCES):
+    if not (kit.VIEWER_FONT_DIR / name).is_file():
+        fail(kit.VIEWER_FONT_DIR / name, "missing; run tools/build_logo.py")
+
 # --- The viewer's logo component ---------------------------------------------------
 compact = ROOT / "logo" / f"{kit.SLUG}-compact.svg"
 if compact.exists() and kit.VIEWER_LOGO.exists():

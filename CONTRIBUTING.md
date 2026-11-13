@@ -57,7 +57,7 @@ The Claude Code manifest has no `version` on purpose, so installed copies follow
 
 ## Brand
 
-Everything under `brand` except its `tools`, `tokens/colors.json` and `fonts` is generated, and so are the copies the rest of the repository uses: the viewer's icons, social image, `app/brand.css` and `lib/brand.json`, the plugin's `assets`, and `examples/hello/logo.png`. Edit the sources and rebuild instead of editing those files:
+Everything under `brand` except its `tools`, `tokens/colors.json` and `fonts` is generated, and so are the copies the rest of the repository uses: the viewer's icons, social image, `app/brand.css`, `lib/brand.json` and `assets/fonts`, the plugin's `assets`, and `examples/hello/logo.png`. Edit the sources and rebuild instead of editing those files:
 
 ```bash
 cd brand

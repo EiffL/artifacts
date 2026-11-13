@@ -25,6 +25,10 @@ In subdomain mode the request proxy rewrites every path on an artifact host to t
 
 **Framed view** (`app/g/[id]/page.tsx`). Title, revision picker, files, history and comments around a sandboxed iframe. Metadata comes from one REST call per revision, cached; if the API is unavailable the artifact still displays, without history.
 
+**Onboarding from a shared artifact** (`components/frame/frame-footer.tsx`, `app/get-started.md/route.ts`, `lib/onboarding.ts`). A strip under every artifact says what published it and carries an "Onboard your agent" button. The button copies a prompt that tells an agent to fetch `/get-started.md`, a Markdown page with the install commands for each agent. That page asks for the install and nothing else, and says so.
+
+**Social cards** (`app/g/[id]/opengraph-image.tsx`, `lib/artifact-card.tsx`). A shared artifact link unfurls to a generated image with the artifact's title, description and owner, and where to make one. It is cached at the CDN for five minutes under the same `gist-<id>` tag as the files, so republishing refreshes it. The fonts in `assets/fonts` are static cuts of Geist written by the brand build.
+
 **Sign-in and dashboard** (`app/api/auth`, `app/dashboard`, `lib/session.ts`). GitHub OAuth web flow. The access token lives only in an encrypted, HTTP-only, host-only cookie (`__Host-` prefixed in production). The dashboard lists the signed-in person's own and starred Gists that contain `artifact.json`; write actions (`app/actions.ts`) call GitHub with their token.
 
 ## Configuration

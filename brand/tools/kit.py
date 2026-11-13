@@ -101,3 +101,12 @@ INSTALL = {
 VIEWER_CSS = REPO / "viewer" / "app" / "brand.css"
 VIEWER_JSON = REPO / "viewer" / "lib" / "brand.json"
 VIEWER_LOGO = REPO / "viewer" / "components" / "logo.tsx"
+# Static cuts of Geist for the viewer's generated social cards, whose renderer cannot read the
+# variable woff2. File name -> (source in fonts/, weight).
+VIEWER_FONT_DIR = REPO / "viewer" / "assets" / "fonts"
+VIEWER_FONTS = {
+    "Geist-Regular.ttf": ("Geist-Variable.woff2", 400),
+    "Geist-SemiBold.ttf": ("Geist-Variable.woff2", 600),
+    "GeistMono-Regular.ttf": ("GeistMono-Variable.woff2", 400),
+}
+VIEWER_FONT_LICENCES = ("OFL-Geist.txt", "OFL-GeistMono.txt")
